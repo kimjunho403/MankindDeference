@@ -193,7 +193,8 @@ export class Game {
     this.entityRenderer.updateSoldierVisuals(this.state.soldiers);
     this.entityRenderer.updateSoldiers(attacks);
     this.entityRenderer.showAttacks(attacks);
-    this.entityRenderer.tickAttackLines(delta);
+    this.entityRenderer.tickArrows(delta);
+    this.entityRenderer.tickParticles(delta);
     this.entityRenderer.tickAnimations(delta);
 
     this.hud.update(this.state);
@@ -217,6 +218,7 @@ export class Game {
       moveSpeed: 3,
       selected: false,
       targetId: null,
+      weaponType: 'arrow',
     };
     this.state.soldiers.push(soldier);
     this.entityRenderer.addSoldier(soldier);

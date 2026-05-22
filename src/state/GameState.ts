@@ -1,3 +1,5 @@
+export type WeaponType = 'arrow';
+
 export interface MonsterData {
   id: number;
   hp: number;
@@ -17,6 +19,7 @@ export interface SoldierData {
   moveSpeed: number;
   selected: boolean;
   targetId: number | null;
+  weaponType: WeaponType;
 }
 
 export interface GameState {

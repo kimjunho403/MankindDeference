@@ -1,10 +1,11 @@
-import type { GameState } from '../state/GameState';
+import type { GameState, WeaponType } from '../state/GameState';
 import { progressToPosition, distance2D } from './TrackSystem';
 
 export interface AttackEvent {
   soldierId: number;
   soldierPos: { x: number; z: number };
   monsterPos: { x: number; z: number };
+  weaponType: WeaponType;
 }
 
 export interface CombatResult {
@@ -119,7 +120,7 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
         const mPos = progressToPosition(target.progress);
         soldier.attackCooldown = 1 / soldier.attackSpeed;
         target.hp -= soldier.attackDamage;
-        attacks.push({ soldierId: soldier.id, soldierPos: soldier.position, monsterPos: mPos });
+        attacks.push({ soldierId: soldier.id, soldierPos: soldier.position, monsterPos: mPos, weaponType: soldier.weaponType });
 
         if (target.hp <= 0) {
           deadIds.push(target.id);
