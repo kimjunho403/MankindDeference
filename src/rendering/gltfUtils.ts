@@ -8,14 +8,15 @@ const TARGET_HEIGHT = 1.5; // world units
  */
 export function makeInPlace(clip: THREE.AnimationClip): THREE.AnimationClip {
   const inPlace = clip.clone();
-  for (const track of inPlace.tracks) {
-    if (!track.name.endsWith('.position')) continue;
-    const v = track.values as Float32Array;
-    for (let i = 0; i < v.length; i += 3) {
-      v[i]     = 0; // X
-      v[i + 2] = 0; // Z
+  // Remove any translation/position tracks entirely to avoid root-motion.
+  // Some exporters may use 'translation' or other naming; match common suffixes.
+  inPlace.tracks = inPlace.tracks.filter(track => {
+    const name = track.name.toLowerCase();
+    if (name.endsWith('.position') || name.endsWith('.translation')) {
+      return false;
     }
-  }
+    return true;
+  });
   return inPlace;
 }
 

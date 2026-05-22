@@ -9,6 +9,7 @@ export interface ArcherTemplate {
   scene: THREE.Object3D;
   idleClip: THREE.AnimationClip;
   shotClip: THREE.AnimationClip;
+  walkClip: THREE.AnimationClip;
   scale: number;
 }
 
@@ -17,6 +18,7 @@ export interface ArcherInstance {
   mixer: THREE.AnimationMixer;
   idleAction: THREE.AnimationAction;
   shotAction: THREE.AnimationAction;
+  walkAction: THREE.AnimationAction;
 }
 
 // ── Loader ────────────────────────────────────────────────────────────────────
@@ -35,6 +37,13 @@ export async function loadArcherTemplate(): Promise<ArcherTemplate> {
 
   const rawIdle = idleGltf.animations[0] ?? modelGltf.animations[0];
   const rawShot = shotGltf.animations[0] ?? modelGltf.animations[0];
+  let rawWalk = modelGltf.animations[0];
+  try {
+    const walkGltf = await loader.loadAsync('/Archer/ArcherWalk.glb');
+    rawWalk = walkGltf.animations[0] ?? rawWalk;
+  } catch (e) {
+    // walk clip is optional; fall back to model animation
+  }
 
   const idleClip = rawIdle
     ? makeInPlace(rawIdle)
@@ -44,7 +53,11 @@ export async function loadArcherTemplate(): Promise<ArcherTemplate> {
     ? makeInPlace(rawShot)
     : new THREE.AnimationClip('shot', 0, []);
 
-  return { scene: modelGltf.scene, idleClip, shotClip, scale };
+  const walkClip = rawWalk
+    ? makeInPlace(rawWalk)
+    : new THREE.AnimationClip('walk', 0, []);
+
+  return { scene: modelGltf.scene, idleClip, shotClip, walkClip, scale };
 }
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -56,7 +69,6 @@ export function createArcherInstance(template: ArcherTemplate): ArcherInstance {
   // Lift bottom of bounding box to Y = 0 (pivot may not be at foot level)
   floorModel(model);
   // Slightly raise the model so the legs do not clip below the ground.
-  model.position.y += 1.02;
 
   const mixer = new THREE.AnimationMixer(model);
 
@@ -67,6 +79,9 @@ export function createArcherInstance(template: ArcherTemplate): ArcherInstance {
   shotAction.setLoop(THREE.LoopOnce, 1);
   shotAction.clampWhenFinished = true;
 
+  const walkAction = mixer.clipAction(template.walkClip);
+  walkAction.setLoop(THREE.LoopRepeat, Infinity);
+
   // Return to idle after the shot animation finishes
   mixer.addEventListener('finished', (e) => {
     const ev = e as THREE.Event & { action: THREE.AnimationAction };
@@ -75,13 +90,14 @@ export function createArcherInstance(template: ArcherTemplate): ArcherInstance {
     idleAction.reset().play();
   });
 
-  return { model, mixer, idleAction, shotAction };
+  return { model, mixer, idleAction, shotAction, walkAction };
 }
 
 // ── Animation helpers ─────────────────────────────────────────────────────────
 
 /** Trigger the shot animation; returns to idle automatically when done. */
 export function playShot(instance: ArcherInstance): void {
+  if ((instance as any).walkAction) (instance as any).walkAction.stop();
   instance.idleAction.stop();
   instance.shotAction.reset().play();
 }
@@ -89,5 +105,6 @@ export function playShot(instance: ArcherInstance): void {
 /** Force-return to idle (e.g. target lost mid-shot). */
 export function playIdle(instance: ArcherInstance): void {
   instance.shotAction.stop();
+  if ((instance as any).walkAction) (instance as any).walkAction.stop();
   instance.idleAction.reset().play();
 }

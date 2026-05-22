@@ -24,6 +24,8 @@ interface SoldierMeshData {
   mixer: THREE.AnimationMixer;
   idleAction: THREE.AnimationAction;
   shotAction: THREE.AnimationAction;
+  selectionMesh?: THREE.Mesh;
+  walkAction?: THREE.AnimationAction;
 }
 
 interface AttackLine {
@@ -100,6 +102,36 @@ export class EntityRenderer {
     this.monsters.set(monster.id, { group, model, hpFill, mixer });
   }
 
+  // Update soldier group positions, selection visuals, rotation and walk/idle animation
+  updateSoldierVisuals(soldiers: SoldierData[]): void {
+    for (const s of soldiers) {
+      const data = this.soldiers.get(s.id);
+      if (!data) continue;
+      data.group.position.set(s.position.x, 0, s.position.z);
+      if (data.selectionMesh) data.selectionMesh.visible = !!s.selected;
+
+      // Rotate model toward movement direction when moving
+      if (s.moveTarget) {
+        const dx = s.moveTarget.x - s.position.x;
+        const dz = s.moveTarget.z - s.position.z;
+        if (Math.hypot(dx, dz) > 1e-4) {
+          data.model.rotation.y = Math.atan2(dx, dz);
+        }
+        // Play walk animation if available
+        if (data.walkAction && !data.walkAction.isRunning()) {
+          data.idleAction.stop();
+          data.walkAction.reset().play();
+        }
+      } else {
+        // Stop walk and return to idle
+        if (data.walkAction && data.walkAction.isRunning()) {
+          data.walkAction.stop();
+          data.idleAction.reset().play();
+        }
+      }
+    }
+  }
+
   removeMonster(id: number): void {
     const data = this.monsters.get(id);
     if (!data) return;
@@ -147,6 +179,16 @@ export class EntityRenderer {
     const instance: ArcherInstance = createArcherInstance(this.archerTemplate);
     group.add(instance.model);
 
+    // Selection indicator
+    const sel = new THREE.Mesh(
+      new THREE.RingGeometry(0.25, 0.32, 24),
+      new THREE.MeshBasicMaterial({ color: 0x88ccff }),
+    );
+    sel.rotation.x = -Math.PI / 2;
+    sel.position.y = 0.02;
+    sel.visible = false;
+    group.add(sel);
+
     // Semi-transparent attack-range ring
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(soldier.attackRange - 0.05, soldier.attackRange, 48),
@@ -170,6 +212,8 @@ export class EntityRenderer {
       mixer: instance.mixer,
       idleAction: instance.idleAction,
       shotAction: instance.shotAction,
+      selectionMesh: sel,
+      walkAction: (instance as any).walkAction,
     });
   }
 

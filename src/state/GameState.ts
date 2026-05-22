@@ -13,6 +13,9 @@ export interface SoldierData {
   attackCooldown: number;
   attackSpeed: number; // attacks per second
   position: { x: number; z: number };
+  moveTarget: { x: number; z: number } | null;
+  moveSpeed: number;
+  selected: boolean;
   targetId: number | null;
 }
 
