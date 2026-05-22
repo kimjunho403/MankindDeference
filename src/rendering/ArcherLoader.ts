@@ -55,6 +55,8 @@ export function createArcherInstance(template: ArcherTemplate): ArcherInstance {
 
   // Lift bottom of bounding box to Y = 0 (pivot may not be at foot level)
   floorModel(model);
+  // Slightly raise the model so the legs do not clip below the ground.
+  model.position.y += 1.02;
 
   const mixer = new THREE.AnimationMixer(model);
 
