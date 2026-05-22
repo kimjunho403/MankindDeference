@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>인류 진화 디펜스</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+
+    #stats {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      color: #eee;
+      font-size: 15px;
+      line-height: 2;
+      z-index: 10;
+      text-shadow: 1px 1px 4px #000;
+      pointer-events: none;
+    }
+    #stats .val { font-weight: bold; color: #fff; }
+
+    #hud {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    .unit-card {
+      background: rgba(10, 20, 50, 0.88);
+      border: 2px solid #3a5a9a;
+      border-radius: 8px;
+      padding: 10px 20px;
+      text-align: center;
+      cursor: pointer;
+      color: white;
+      min-width: 110px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .unit-card:hover:not(:disabled) {
+      border-color: #7aaaff;
+      background: rgba(20, 40, 100, 0.95);
+    }
+    .unit-card:disabled { border-color: #444; color: #666; cursor: not-allowed; }
+    .unit-card .name { font-size: 15px; font-weight: bold; }
+    .unit-card .cost { font-size: 12px; color: #ffd700; margin-top: 4px; }
+
+    #game-over {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: white;
+    }
+    #game-over.visible { display: flex; }
+    #game-over h1 { font-size: 52px; color: #ff4444; }
+    #game-over p { font-size: 18px; color: #aaa; margin-top: 12px; }
+    #btn-restart {
+      margin-top: 28px;
+      padding: 12px 36px;
+      font-size: 18px;
+      background: #2a4a8a;
+      border: 2px solid #4a7adf;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+    }
+    #btn-restart:hover { background: #3a5aaa; }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: #0a0a14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #aaa;
+      font-size: 22px;
+      z-index: 200;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">⏳ 로딩 중...</div>
+
+  <div id="stats">
+    <div>💰 골드 &nbsp;&nbsp;&nbsp;&nbsp;<span class="val" id="gold">100</span></div>
+    <div>👾 몬스터 &nbsp;<span class="val" id="monster-count">0 / 100</span></div>
+    <div>⚔️ 병사 &nbsp;&nbsp;&nbsp;<span class="val" id="soldier-count">0</span></div>
+  </div>
+
+  <div id="hud">
+    <button id="btn-spawn-soldier" class="unit-card">
+      <div class="name">⚔️ 병사 소환</div>
+      <div class="cost">💰 20골드</div>
+    </button>
+  </div>
+
+  <div id="game-over">
+    <h1>💀 패배!</h1>
+    <p>몬스터가 100마리를 넘었습니다</p>
+    <button id="btn-restart" onclick="location.reload()">다시 시작</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
