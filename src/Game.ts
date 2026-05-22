@@ -81,11 +81,18 @@ export class Game {
           const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
           const point = new THREE.Vector3();
           if (ray.ray.intersectPlane(plane, point)) {
-            for (const s of this.state.soldiers) {
-              if (s.selected) {
-                s.moveTarget = { x: point.x, z: point.z };
-              }
-            }
+            const selected = this.state.soldiers.filter(s => s.selected);
+            const SPACING = 0.9;
+            const cols = Math.ceil(Math.sqrt(selected.length));
+            const rows = Math.ceil(selected.length / cols);
+            selected.forEach((s, i) => {
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              s.moveTarget = {
+                x: point.x + (col - (cols - 1) / 2) * SPACING,
+                z: point.z + (row - (rows - 1) / 2) * SPACING,
+              };
+            });
           }
           return;
         }
