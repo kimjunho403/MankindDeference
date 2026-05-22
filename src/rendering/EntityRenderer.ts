@@ -25,7 +25,7 @@ interface SoldierMeshData {
   idleAction: THREE.AnimationAction;
   shotAction: THREE.AnimationAction;
   selectionMesh?: THREE.Mesh;
-  walkAction?: THREE.AnimationAction;
+  walkAction: THREE.AnimationAction;
 }
 
 interface Projectile {
@@ -50,23 +50,7 @@ interface WeaponEffectHandler {
   onHit(pos: THREE.Vector3): void;
 }
 
-function createGroundShadow(radius: number, opacity = 0.22): THREE.Mesh {
-  const material = new THREE.MeshBasicMaterial({
-    color: 0x000000,
-    transparent: true,
-    opacity,
-    depthWrite: false,
-    depthTest: false,
-  });
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(radius, 32),
-    material,
-  );
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.02;
-  shadow.renderOrder = 1;
-  return shadow;
-}
+
 
 function createArrowMesh(): THREE.Group {
   const arrow = new THREE.Group();
@@ -116,10 +100,8 @@ export class EntityRenderer {
   addMonster(monster: MonsterData): void {
     const group = new THREE.Group();
 
-    const shadow = createGroundShadow(0.75, 0.18);
-    group.add(shadow);
-
     const { model, mixer } = createMonsterInstance(this.monsterTemplate);
+    model.traverse(obj => { if (obj instanceof THREE.Mesh) obj.castShadow = true; });
     group.add(model);
 
     const HP_BAR_W = 1.0;
@@ -220,10 +202,8 @@ export class EntityRenderer {
   addSoldier(soldier: SoldierData): void {
     const group = new THREE.Group();
 
-    const shadow = createGroundShadow(0.45, 0.2);
-    group.add(shadow);
-
     const instance: ArcherInstance = createArcherInstance(this.archerTemplate);
+    instance.model.traverse(obj => { if (obj instanceof THREE.Mesh) obj.castShadow = true; });
     group.add(instance.model);
 
     // Selection indicator
@@ -260,7 +240,7 @@ export class EntityRenderer {
       idleAction: instance.idleAction,
       shotAction: instance.shotAction,
       selectionMesh: sel,
-      walkAction: (instance as any).walkAction,
+      walkAction: instance.walkAction,
     });
   }
 

@@ -16,6 +16,15 @@ function addLights(scene: THREE.Scene): void {
   scene.add(new THREE.HemisphereLight(0xddeeff, 0x553322, 0.6));
   const sun = new THREE.DirectionalLight(0xffffff, 1.2);
   sun.position.set(6, 12, 8);
+  sun.castShadow = true;
+  sun.shadow.mapSize.width  = 2048;
+  sun.shadow.mapSize.height = 2048;
+  sun.shadow.camera.near   = 0.5;
+  sun.shadow.camera.far    = 50;
+  sun.shadow.camera.left   = -18;
+  sun.shadow.camera.right  =  18;
+  sun.shadow.camera.top    =  18;
+  sun.shadow.camera.bottom = -18;
   scene.add(sun);
 }
 
@@ -36,6 +45,15 @@ function addGround(scene: THREE.Scene): void {
   innerZone.rotation.x = -Math.PI / 2;
   innerZone.position.y = 0.005;
   scene.add(innerZone);
+
+  const shadowOverlay = new THREE.Mesh(
+    new THREE.CircleGeometry(18, 64),
+    new THREE.ShadowMaterial({ opacity: 0.5 }),
+  );
+  shadowOverlay.rotation.x = -Math.PI / 2;
+  shadowOverlay.position.y = 0.01;
+  shadowOverlay.receiveShadow = true;
+  scene.add(shadowOverlay);
 }
 
 // ── Track ─────────────────────────────────────────────────────────────────────

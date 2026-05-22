@@ -33,6 +33,8 @@ export class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(this.renderer.domElement);
     await this.renderer.init();
 
