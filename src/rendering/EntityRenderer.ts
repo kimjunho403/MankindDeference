@@ -31,6 +31,24 @@ interface AttackLine {
   ttl: number;
 }
 
+function createGroundShadow(radius: number, opacity = 0.22): THREE.Mesh {
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+    depthTest: false,
+  });
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(radius, 32),
+    material,
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.02;
+  shadow.renderOrder = 1;
+  return shadow;
+}
+
 // ── EntityRenderer ─────────────────────────────────────────────────────────────
 
 export class EntityRenderer {
@@ -48,6 +66,9 @@ export class EntityRenderer {
 
   addMonster(monster: MonsterData): void {
     const group = new THREE.Group();
+
+    const shadow = createGroundShadow(0.75, 0.18);
+    group.add(shadow);
 
     const { model, mixer } = createMonsterInstance(this.monsterTemplate);
     group.add(model);
@@ -119,6 +140,9 @@ export class EntityRenderer {
 
   addSoldier(soldier: SoldierData): void {
     const group = new THREE.Group();
+
+    const shadow = createGroundShadow(0.45, 0.2);
+    group.add(shadow);
 
     const instance: ArcherInstance = createArcherInstance(this.archerTemplate);
     group.add(instance.model);
