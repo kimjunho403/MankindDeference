@@ -6,7 +6,7 @@ import { updateMonsterMovement, updateCombat, updateSoldierMovement } from './sy
 import { EntityRenderer } from './rendering/EntityRenderer';
 import { loadMonsterTemplate } from './rendering/MonsterLoader';
 import { loadArcherTemplate } from './rendering/ArcherLoader';
-import { buildScene } from './scene/SceneBuilder';
+import { buildScene } from './Map/MapBuilder';
 import { InputController } from './input/InputController';
 import { HUD } from './ui/HUD';
 
