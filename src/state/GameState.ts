@@ -1,4 +1,5 @@
-export type WeaponType = 'arrow';
+export type SoldierType = 'archer' | 'ninja';
+export type WeaponType  = 'arrow' | 'shuriken';
 
 export interface MonsterData {
   id: number;
@@ -19,6 +20,7 @@ export interface SoldierData {
   moveSpeed: number;
   selected: boolean;
   targetId: number | null;
+  soldierType: SoldierType;
   weaponType: WeaponType;
 }
 

@@ -5,7 +5,7 @@ import { updateSpawn } from './systems/SpawnSystem';
 import { updateMonsterMovement, updateCombat, updateSoldierMovement } from './systems/CombatSystem';
 import { EntityRenderer } from './rendering/EntityRenderer';
 import { loadMonsterTemplate } from './rendering/MonsterLoader';
-import { loadArcherTemplate } from './rendering/ArcherLoader';
+import { loadAllTemplates, randomSoldierType, getCharacterDef } from './rendering/CharacterRegistry';
 import { buildScene } from './Map/MapBuilder';
 import { InputController } from './input/InputController';
 import { HUD } from './ui/HUD';
@@ -56,7 +56,6 @@ export class Game {
         this.renderer.setSize(w, h);
       },
       (rect) => {
-        // Selection rectangle: project soldier positions to screen and set selected
         const canvasRect = (this.renderer.domElement as HTMLCanvasElement).getBoundingClientRect();
         let count = 0;
         for (const s of this.state.soldiers) {
@@ -67,15 +66,12 @@ export class Game {
           s.selected = inside;
           if (inside) count++;
         }
-        // debug
         // eslint-disable-next-line no-console
         console.log('[Game] selected count', count);
       },
       (clientX, clientY, button, ctrl) => {
-        // Right-click: issue move command. Left-click: toggle selection.
         if (button === 2) {
           const canvasRect = (this.renderer.domElement as HTMLCanvasElement).getBoundingClientRect();
-          // Raycast to ground plane
           const ndcX = ((clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
           const ndcY = -((clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
           const ray = new THREE.Raycaster();
@@ -99,9 +95,8 @@ export class Game {
           return;
         }
 
-        // Single left-click: toggle soldier selection if clicked
         const canvasRect = (this.renderer.domElement as HTMLCanvasElement).getBoundingClientRect();
-        const clickThreshold = 12; // pixels
+        const clickThreshold = 12;
         let clickedSoldier: number | null = null;
         for (const s of this.state.soldiers) {
           const v = new THREE.Vector3(s.position.x, 0, s.position.z).project(this.camera);
@@ -117,34 +112,30 @@ export class Game {
           const s = this.state.soldiers.find(x => x.id === clickedSoldier);
           if (!s) return;
           if (ctrl) {
-            // Additive toggle selection
             s.selected = !s.selected;
             return;
           }
-          // Non-ctrl single-click: select only this soldier
           for (const other of this.state.soldiers) other.selected = false;
           s.selected = true;
           return;
         }
 
-        // Left-click on empty space: if ctrl held, keep selection; otherwise deselect all
         if (!ctrl) {
           for (const s of this.state.soldiers) s.selected = false;
         }
         return;
       },
       () => {
-        // ESC pressed: deselect all
         for (const s of this.state.soldiers) s.selected = false;
       },
     );
-    this.input.updateCamera(this.camera); // set initial camera position
+    this.input.updateCamera(this.camera);
 
-    const [monsterTemplate, archerTemplate] = await Promise.all([
+    const [monsterTemplate, soldierTemplates] = await Promise.all([
       loadMonsterTemplate(),
-      loadArcherTemplate(),
+      loadAllTemplates(),
     ]);
-    this.entityRenderer = new EntityRenderer(this.scene, monsterTemplate, archerTemplate);
+    this.entityRenderer = new EntityRenderer(this.scene, monsterTemplate, soldierTemplates);
 
     this.hud = new HUD();
     this.hud.onSpawnSoldier(() => this.trySpawnSoldier());
@@ -181,17 +172,14 @@ export class Game {
     if (newMonster) this.entityRenderer.addMonster(newMonster);
 
     updateMonsterMovement(this.state, delta);
-    // Move soldiers towards moveTarget (if any)
     updateSoldierMovement(this.state, delta);
 
-    // Defeat: too many monsters alive simultaneously
     if (this.state.monsters.length >= 100) this.state.gameOver = true;
 
     const { deadIds, attacks } = updateCombat(this.state, delta);
     for (const id of deadIds) this.entityRenderer.removeMonster(id);
 
     this.entityRenderer.updateMonsters(this.state.monsters);
-    // Update soldier visuals after movement
     this.entityRenderer.updateSoldierVisuals(this.state.soldiers);
     this.entityRenderer.updateSoldiers(attacks);
     this.entityRenderer.showAttacks(attacks);
@@ -208,19 +196,23 @@ export class Game {
     if (this.state.gold < SOLDIER_COST || this.state.gameOver) return;
     this.state.gold -= SOLDIER_COST;
 
+    const soldierType = randomSoldierType();
+    const def = getCharacterDef(soldierType);
     const pos = randomSoldierPosition();
+
     const soldier: SoldierData = {
       id: this.state.nextSoldierId++,
-      attackDamage: 10,
-      attackRange: 4,
+      soldierType,
+      weaponType: def.weaponType,
+      attackDamage: def.stats.attackDamage,
+      attackRange: def.stats.attackRange,
       attackCooldown: 0,
-      attackSpeed: 1,
+      attackSpeed: def.stats.attackSpeed,
       position: pos,
       moveTarget: null,
-      moveSpeed: 3,
+      moveSpeed: def.stats.moveSpeed,
       selected: false,
       targetId: null,
-      weaponType: 'arrow',
     };
     this.state.soldiers.push(soldier);
     this.entityRenderer.addSoldier(soldier);

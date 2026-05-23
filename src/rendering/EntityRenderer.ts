@@ -1,18 +1,16 @@
 import * as THREE from 'three';
-import type { MonsterData, SoldierData } from '../state/GameState';
+import type { MonsterData, SoldierData, SoldierType } from '../state/GameState';
 import { progressToPosition } from '../systems/TrackSystem';
 import type { AttackEvent } from '../systems/CombatSystem';
 import type { MonsterTemplate } from './MonsterLoader';
 import { createMonsterInstance } from './MonsterLoader';
-import type { ArcherTemplate, ArcherInstance } from './ArcherLoader';
-import { createArcherInstance, playShot } from './ArcherLoader';
+import type { SoldierTemplate, SoldierInstance } from './SoldierTypes';
+import { createSoldierInstance, playAttack } from './SoldierTypes';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface MonsterMeshData {
-  /** Outer group — positioned at track location */
   group: THREE.Group;
-  /** Cloned model — rotated to face movement direction */
   model: THREE.Object3D;
   hpFill: THREE.Mesh;
   mixer: THREE.AnimationMixer;
@@ -20,12 +18,8 @@ interface MonsterMeshData {
 
 interface SoldierMeshData {
   group: THREE.Group;
-  model: THREE.Object3D;
-  mixer: THREE.AnimationMixer;
-  idleAction: THREE.AnimationAction;
-  shotAction: THREE.AnimationAction;
+  instance: SoldierInstance;
   selectionMesh?: THREE.Mesh;
-  walkAction: THREE.AnimationAction;
 }
 
 interface Projectile {
@@ -36,6 +30,8 @@ interface Projectile {
   duration: number;
   arcHeight: number;
   weaponType: string;
+  spinAngle: number;
+  spinSpeed: number;
 }
 
 interface HitParticle {
@@ -47,15 +43,17 @@ interface HitParticle {
 
 interface WeaponEffectHandler {
   createProjectile(): THREE.Group;
+  arcHeight(dist: number): number;
+  flightDuration(dist: number): number;
+  spinSpeed: number;
   onHit(pos: THREE.Vector3): void;
 }
 
-
+// ── Projectile mesh factories ─────────────────────────────────────────────────
 
 function createArrowMesh(): THREE.Group {
   const arrow = new THREE.Group();
 
-  // Shaft: thin brown cylinder aligned along +Z
   const shaft = new THREE.Mesh(
     new THREE.CylinderGeometry(0.025, 0.025, 0.38, 6),
     new THREE.MeshBasicMaterial({ color: 0xb8864e }),
@@ -63,23 +61,48 @@ function createArrowMesh(): THREE.Group {
   shaft.rotation.x = -Math.PI / 2;
   arrow.add(shaft);
 
-  // Tip: dark metal cone — apex points +Z
   const tip = new THREE.Mesh(
     new THREE.ConeGeometry(0.05, 0.16, 6),
     new THREE.MeshBasicMaterial({ color: 0x555555 }),
   );
   tip.rotation.x = -Math.PI / 2;
-  tip.position.z = 0.19 + 0.08; // shaft_half + cone_half
+  tip.position.z = 0.19 + 0.08;
   arrow.add(tip);
 
   return arrow;
 }
 
+function createShurikenMesh(): THREE.Group {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0xaaaacc, side: THREE.DoubleSide });
+
+  // Four blades rotated 45° apart
+  for (let i = 0; i < 4; i++) {
+    const blade = new THREE.Mesh(
+      new THREE.ConeGeometry(0.04, 0.22, 3),
+      mat,
+    );
+    blade.rotation.z = (i / 4) * Math.PI * 2;
+    blade.position.x = Math.sin((i / 4) * Math.PI * 2) * 0.07;
+    blade.position.y = Math.cos((i / 4) * Math.PI * 2) * 0.07;
+    group.add(blade);
+  }
+
+  // Flat disc center
+  const disc = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.06, 0.06, 0.03, 8),
+    new THREE.MeshBasicMaterial({ color: 0x888899 }),
+  );
+  group.add(disc);
+
+  return group;
+}
+
 // ── EntityRenderer ─────────────────────────────────────────────────────────────
 
 export class EntityRenderer {
-  private monsters = new Map<number, MonsterMeshData>();
-  private soldiers = new Map<number, SoldierMeshData>();
+  private monsters  = new Map<number, MonsterMeshData>();
+  private soldiers  = new Map<number, SoldierMeshData>();
   private projectiles: Projectile[] = [];
   private hitParticles: HitParticle[] = [];
   private readonly weaponHandlers = new Map<string, WeaponEffectHandler>();
@@ -87,10 +110,21 @@ export class EntityRenderer {
   constructor(
     private scene: THREE.Scene,
     private monsterTemplate: MonsterTemplate,
-    private archerTemplate: ArcherTemplate,
+    private soldierTemplates: Map<SoldierType, SoldierTemplate>,
   ) {
     this.weaponHandlers.set('arrow', {
       createProjectile: createArrowMesh,
+      arcHeight: (dist) => Math.max(0.8, dist * 0.2),
+      flightDuration: (dist) => 0.1 + dist * 0.01,
+      spinSpeed: 0,
+      onHit: (pos) => this.spawnBloodSplash(pos),
+    });
+
+    this.weaponHandlers.set('shuriken', {
+      createProjectile: createShurikenMesh,
+      arcHeight: (dist) => Math.max(0.3, dist * 0.08),
+      flightDuration: (dist) => 0.08 + dist * 0.008,
+      spinSpeed: 18,
       onHit: (pos) => this.spawnBloodSplash(pos),
     });
   }
@@ -131,36 +165,6 @@ export class EntityRenderer {
     this.monsters.set(monster.id, { group, model, hpFill, mixer });
   }
 
-  // Update soldier group positions, selection visuals, rotation and walk/idle animation
-  updateSoldierVisuals(soldiers: SoldierData[]): void {
-    for (const s of soldiers) {
-      const data = this.soldiers.get(s.id);
-      if (!data) continue;
-      data.group.position.set(s.position.x, 0, s.position.z);
-      if (data.selectionMesh) data.selectionMesh.visible = !!s.selected;
-
-      // Rotate model toward movement direction when moving
-      if (s.moveTarget) {
-        const dx = s.moveTarget.x - s.position.x;
-        const dz = s.moveTarget.z - s.position.z;
-        if (Math.hypot(dx, dz) > 1e-4) {
-          data.model.rotation.y = Math.atan2(dx, dz);
-        }
-        // Play walk animation if available
-        if (data.walkAction && !data.walkAction.isRunning()) {
-          data.idleAction.stop();
-          data.walkAction.reset().play();
-        }
-      } else {
-        // Stop walk and return to idle
-        if (data.walkAction && data.walkAction.isRunning()) {
-          data.walkAction.stop();
-          data.idleAction.reset().play();
-        }
-      }
-    }
-  }
-
   removeMonster(id: number): void {
     const data = this.monsters.get(id);
     if (!data) return;
@@ -185,11 +189,9 @@ export class EntityRenderer {
       const pos = progressToPosition(monster.progress);
       data.group.position.set(pos.x, 0, pos.z);
 
-      // Rotate model to face direction of movement (CCW circle tangent)
       const theta = monster.progress * Math.PI * 2;
       data.model.rotation.y = Math.atan2(-Math.sin(theta), Math.cos(theta));
 
-      // HP bar color + scale
       const ratio = Math.max(0, monster.hp / monster.maxHp);
       data.hpFill.scale.x = ratio;
       data.hpFill.position.x = (ratio - 1) * 0.5;
@@ -200,13 +202,17 @@ export class EntityRenderer {
   // ── Soldier ───────────────────────────────────────────────────────────────
 
   addSoldier(soldier: SoldierData): void {
-    const group = new THREE.Group();
+    const template = this.soldierTemplates.get(soldier.soldierType);
+    if (!template) {
+      console.warn(`No template for soldierType: ${soldier.soldierType}`);
+      return;
+    }
 
-    const instance: ArcherInstance = createArcherInstance(this.archerTemplate);
+    const group = new THREE.Group();
+    const instance = createSoldierInstance(template);
     instance.model.traverse(obj => { if (obj instanceof THREE.Mesh) obj.castShadow = true; });
     group.add(instance.model);
 
-    // Selection indicator
     const sel = new THREE.Mesh(
       new THREE.RingGeometry(0.25, 0.32, 24),
       new THREE.MeshBasicMaterial({ color: 0x88ccff }),
@@ -216,7 +222,6 @@ export class EntityRenderer {
     sel.visible = false;
     group.add(sel);
 
-    // Semi-transparent attack-range ring
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(soldier.attackRange - 0.05, soldier.attackRange, 48),
       new THREE.MeshBasicMaterial({
@@ -233,44 +238,58 @@ export class EntityRenderer {
     group.position.set(soldier.position.x, 0, soldier.position.z);
     this.scene.add(group);
 
-    this.soldiers.set(soldier.id, {
-      group,
-      model: instance.model,
-      mixer: instance.mixer,
-      idleAction: instance.idleAction,
-      shotAction: instance.shotAction,
-      selectionMesh: sel,
-      walkAction: instance.walkAction,
-    });
+    this.soldiers.set(soldier.id, { group, instance, selectionMesh: sel });
   }
 
-  /**
-   * Process attack events: rotate each archer toward its target and
-   * trigger the shot animation.
-   */
+  updateSoldierVisuals(soldiers: SoldierData[]): void {
+    for (const s of soldiers) {
+      const data = this.soldiers.get(s.id);
+      if (!data) continue;
+      const { instance } = data;
+
+      data.group.position.set(s.position.x, 0, s.position.z);
+      if (data.selectionMesh) data.selectionMesh.visible = !!s.selected;
+
+      if (s.moveTarget) {
+        const dx = s.moveTarget.x - s.position.x;
+        const dz = s.moveTarget.z - s.position.z;
+        if (Math.hypot(dx, dz) > 1e-4) {
+          instance.model.rotation.y = Math.atan2(dx, dz);
+        }
+        if (!instance.walkAction.isRunning()) {
+          instance.idleAction.stop();
+          instance.walkAction.reset().play();
+        }
+      } else {
+        if (instance.walkAction.isRunning()) {
+          instance.walkAction.stop();
+          instance.idleAction.reset().play();
+        }
+      }
+    }
+  }
+
   updateSoldiers(attacks: AttackEvent[]): void {
     for (const attack of attacks) {
       const data = this.soldiers.get(attack.soldierId);
       if (!data) continue;
 
-      // Rotate model to face the target (assumes +Z is default model forward)
       const dx = attack.monsterPos.x - attack.soldierPos.x;
       const dz = attack.monsterPos.z - attack.soldierPos.z;
-      data.model.rotation.y = Math.atan2(dx, dz);
+      data.instance.model.rotation.y = Math.atan2(dx, dz);
 
-      playShot(data);
+      playAttack(data.instance);
     }
   }
 
   // ── Animations ────────────────────────────────────────────────────────────
 
-  /** Advance all AnimationMixers (monsters and soldiers) by delta seconds. */
   tickAnimations(delta: number): void {
     for (const data of this.monsters.values()) {
       data.mixer.update(delta);
     }
     for (const data of this.soldiers.values()) {
-      data.mixer.update(delta);
+      data.instance.mixer.update(delta);
     }
   }
 
@@ -278,17 +297,26 @@ export class EntityRenderer {
 
   showAttacks(events: AttackEvent[]): void {
     for (const ev of events) {
-      const handler = this.weaponHandlers.get(ev.weaponType);
+      const handler = this.weaponHandlers.get(ev.weaponType) ?? this.weaponHandlers.get('arrow')!;
       const from = new THREE.Vector3(ev.soldierPos.x, 1.2, ev.soldierPos.z);
       const to   = new THREE.Vector3(ev.monsterPos.x, 0.8, ev.monsterPos.z);
       const dist = from.distanceTo(to);
-      const arcHeight = Math.max(0.8, dist * 0.2);
-      const duration  = 0.1 + dist * 0.01;
 
-      const mesh = handler ? handler.createProjectile() : createArrowMesh();
+      const mesh = handler.createProjectile();
       mesh.position.copy(from);
       this.scene.add(mesh);
-      this.projectiles.push({ mesh, from, to, progress: 0, duration, arcHeight, weaponType: ev.weaponType });
+
+      this.projectiles.push({
+        mesh,
+        from,
+        to,
+        progress: 0,
+        duration: handler.flightDuration(dist),
+        arcHeight: handler.arcHeight(dist),
+        weaponType: ev.weaponType,
+        spinAngle: 0,
+        spinSpeed: handler.spinSpeed,
+      });
     }
   }
 
@@ -320,6 +348,11 @@ export class EntityRenderer {
 
       p.mesh.position.copy(pos);
       if (ahead.distanceTo(pos) > 1e-4) p.mesh.lookAt(ahead);
+
+      if (p.spinSpeed > 0) {
+        p.spinAngle += p.spinSpeed * delta;
+        p.mesh.rotateZ(p.spinSpeed * delta);
+      }
     }
   }
 
