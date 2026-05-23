@@ -5,7 +5,7 @@ import type { AttackEvent } from '../systems/CombatSystem';
 import type { MonsterTemplate } from './MonsterLoader';
 import { createMonsterInstance } from './MonsterLoader';
 import type { SoldierTemplate, SoldierInstance } from './SoldierTypes';
-import { createSoldierInstance, playAttack } from './SoldierTypes';
+import { createSoldierInstance, playAttack, playWalk, playIdle } from './SoldierTypes';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -256,15 +256,9 @@ export class EntityRenderer {
         if (Math.hypot(dx, dz) > 1e-4) {
           instance.model.rotation.y = Math.atan2(dx, dz);
         }
-        if (!instance.walkAction.isRunning()) {
-          instance.idleAction.stop();
-          instance.walkAction.reset().play();
-        }
+        playWalk(instance);
       } else {
-        if (instance.walkAction.isRunning()) {
-          instance.walkAction.stop();
-          instance.idleAction.reset().play();
-        }
+        playIdle(instance);
       }
     }
   }
