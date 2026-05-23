@@ -6,8 +6,10 @@ import { updateMonsterMovement, updateCombat, updateSoldierMovement } from './sy
 import { EntityRenderer } from './rendering/EntityRenderer';
 import { loadMonsterTemplate } from './rendering/MonsterLoader';
 import { loadAllTemplates, randomSoldierType, getCharacterDef } from './rendering/CharacterRegistry';
+import { createRenderer } from './rendering/RendererFactory';
 import { buildScene } from './Map/MapBuilder';
 import { InputController } from './input/InputController';
+import { CommandHandler } from './input/CommandHandler';
 import { HUD } from './ui/HUD';
 
 const SOLDIER_COST = 20;
@@ -28,106 +30,27 @@ export class Game {
   async init(): Promise<void> {
     this.state = createGameState();
 
-    const { WebGPURenderer } = await import('three/webgpu');
-    this.renderer = new WebGPURenderer({ antialias: true });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.body.appendChild(this.renderer.domElement);
-    await this.renderer.init();
-
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x141420);
-
-    this.camera = new THREE.PerspectiveCamera(
-      55, window.innerWidth / window.innerHeight, 0.1, 200,
-    );
+    const bundle = await createRenderer();
+    this.renderer = bundle.renderer;
+    this.scene    = bundle.scene;
+    this.camera   = bundle.camera;
 
     buildScene(this.scene);
 
+    const canvas = this.renderer.domElement as HTMLCanvasElement;
+    const cmd    = new CommandHandler(canvas, this.state, () => this.camera);
+
     this.input = new InputController();
     this.input.register(
-      this.renderer.domElement as HTMLCanvasElement,
+      canvas,
       (aspect, w, h) => {
         this.camera.aspect = aspect;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w, h);
       },
-      (rect) => {
-        const canvasRect = (this.renderer.domElement as HTMLCanvasElement).getBoundingClientRect();
-        let count = 0;
-        for (const s of this.state.soldiers) {
-          const v = new THREE.Vector3(s.position.x, 0, s.position.z).project(this.camera);
-          const sx = (v.x * 0.5 + 0.5) * canvasRect.width + canvasRect.left;
-          const sy = (-v.y * 0.5 + 0.5) * canvasRect.height + canvasRect.top;
-          const inside = sx >= rect.x1 && sx <= rect.x2 && sy >= rect.y1 && sy <= rect.y2;
-          s.selected = inside;
-          if (inside) count++;
-        }
-        // eslint-disable-next-line no-console
-        console.log('[Game] selected count', count);
-      },
-      (clientX, clientY, button, ctrl) => {
-        if (button === 2) {
-          const canvasRect = (this.renderer.domElement as HTMLCanvasElement).getBoundingClientRect();
-          const ndcX = ((clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
-          const ndcY = -((clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
-          const ray = new THREE.Raycaster();
-          ray.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
-          const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-          const point = new THREE.Vector3();
-          if (ray.ray.intersectPlane(plane, point)) {
-            const selected = this.state.soldiers.filter(s => s.selected);
-            const SPACING = 0.9;
-            const cols = Math.ceil(Math.sqrt(selected.length));
-            const rows = Math.ceil(selected.length / cols);
-            selected.forEach((s, i) => {
-              const col = i % cols;
-              const row = Math.floor(i / cols);
-              s.moveTarget = {
-                x: point.x + (col - (cols - 1) / 2) * SPACING,
-                z: point.z + (row - (rows - 1) / 2) * SPACING,
-              };
-            });
-          }
-          return;
-        }
-
-        const canvasRect = (this.renderer.domElement as HTMLCanvasElement).getBoundingClientRect();
-        const clickThreshold = 12;
-        let clickedSoldier: number | null = null;
-        for (const s of this.state.soldiers) {
-          const v = new THREE.Vector3(s.position.x, 0, s.position.z).project(this.camera);
-          const sx = (v.x * 0.5 + 0.5) * canvasRect.width + canvasRect.left;
-          const sy = (-v.y * 0.5 + 0.5) * canvasRect.height + canvasRect.top;
-          const d = Math.hypot(sx - clientX, sy - clientY);
-          if (d <= clickThreshold) {
-            clickedSoldier = s.id;
-            break;
-          }
-        }
-        if (clickedSoldier !== null) {
-          const s = this.state.soldiers.find(x => x.id === clickedSoldier);
-          if (!s) return;
-          if (ctrl) {
-            s.selected = !s.selected;
-            return;
-          }
-          for (const other of this.state.soldiers) other.selected = false;
-          s.selected = true;
-          return;
-        }
-
-        if (!ctrl) {
-          for (const s of this.state.soldiers) s.selected = false;
-        }
-        return;
-      },
-      () => {
-        for (const s of this.state.soldiers) s.selected = false;
-      },
+      cmd.onSelectionRect,
+      cmd.onClick,
+      cmd.onDeselect,
     );
     this.input.updateCamera(this.camera);
 
@@ -136,6 +59,7 @@ export class Game {
       loadAllTemplates(),
     ]);
     this.entityRenderer = new EntityRenderer(this.scene, monsterTemplate, soldierTemplates);
+    cmd.registerDebugKeys(() => this.entityRenderer.toggleRangeRings());
 
     this.hud = new HUD();
     this.hud.onSpawnSoldier(() => this.trySpawnSoldier());
@@ -154,11 +78,8 @@ export class Game {
   private loop = (time: number): void => {
     const delta = Math.min((time - this.lastTime) / 1000, 0.1);
     this.lastTime = time;
-
     this.input.updateCamera(this.camera);
-
     if (!this.state.gameOver) this.update(delta);
-
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(this.loop);
   };
@@ -203,16 +124,16 @@ export class Game {
     const soldier: SoldierData = {
       id: this.state.nextSoldierId++,
       soldierType,
-      weaponType: def.weaponType,
-      attackDamage: def.stats.attackDamage,
-      attackRange: def.stats.attackRange,
+      weaponType:    def.weaponType,
+      attackDamage:  def.stats.attackDamage,
+      attackRange:   def.stats.attackRange,
       attackCooldown: 0,
-      attackSpeed: def.stats.attackSpeed,
-      position: pos,
-      moveTarget: null,
-      moveSpeed: def.stats.moveSpeed,
-      selected: false,
-      targetId: null,
+      attackSpeed:   def.stats.attackSpeed,
+      position:      pos,
+      moveTarget:    null,
+      moveSpeed:     def.stats.moveSpeed,
+      selected:      false,
+      targetId:      null,
     };
     this.state.soldiers.push(soldier);
     this.entityRenderer.addSoldier(soldier);

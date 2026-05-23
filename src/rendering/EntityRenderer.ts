@@ -20,6 +20,7 @@ interface SoldierMeshData {
   group: THREE.Group;
   instance: SoldierInstance;
   selectionMesh?: THREE.Mesh;
+  rangeRing: THREE.Mesh;
 }
 
 interface Projectile {
@@ -106,6 +107,7 @@ export class EntityRenderer {
   private projectiles: Projectile[] = [];
   private hitParticles: HitParticle[] = [];
   private readonly weaponHandlers = new Map<string, WeaponEffectHandler>();
+  private showRangeRings = false;
 
   constructor(
     private scene: THREE.Scene,
@@ -233,12 +235,13 @@ export class EntityRenderer {
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.02;
+    ring.visible = this.showRangeRings;
     group.add(ring);
 
     group.position.set(soldier.position.x, 0, soldier.position.z);
     this.scene.add(group);
 
-    this.soldiers.set(soldier.id, { group, instance, selectionMesh: sel });
+    this.soldiers.set(soldier.id, { group, instance, selectionMesh: sel, rangeRing: ring });
   }
 
   updateSoldierVisuals(soldiers: SoldierData[]): void {
@@ -273,6 +276,13 @@ export class EntityRenderer {
       data.instance.model.rotation.y = Math.atan2(dx, dz);
 
       playAttack(data.instance);
+    }
+  }
+
+  toggleRangeRings(): void {
+    this.showRangeRings = !this.showRangeRings;
+    for (const data of this.soldiers.values()) {
+      data.rangeRing.visible = this.showRangeRings;
     }
   }
 
