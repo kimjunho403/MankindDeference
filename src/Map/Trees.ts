@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TRACK_RADIUS } from '../systems/TrackSystem';
+import { TRACK_RADIUS } from '../core/systems/TrackSystem';
 import { seededRng } from './mapUtils';
 
 export function addTrees(scene: THREE.Scene): void {

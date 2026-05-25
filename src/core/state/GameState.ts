@@ -5,22 +5,22 @@ export interface MonsterData {
   id: number;
   hp: number;
   maxHp: number;
-  speed: number;   // track laps per second
-  progress: number; // 0 ~ 1 (position on circular track)
+  speed: number;
+  progress: number;
 }
 
 export interface SoldierData {
   id: number;
+  soldierType: SoldierType;
   attackDamage: number;
   attackRange: number;
   attackCooldown: number;
-  attackSpeed: number; // attacks per second
+  attackSpeed: number;
   position: { x: number; z: number };
   moveTarget: { x: number; z: number } | null;
   moveSpeed: number;
   selected: boolean;
   targetId: number | null;
-  soldierType: SoldierType;
   weaponType: WeaponType;
 }
 
@@ -32,7 +32,7 @@ export interface GameState {
   nextMonsterId: number;
   nextSoldierId: number;
   spawnTimer: number;
-  spawnInterval: number; // seconds between monster spawns
+  spawnInterval: number;
   gameOver: boolean;
 }
 

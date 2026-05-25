@@ -1,4 +1,4 @@
-import { Game } from './Game';
+import { Game } from './core/Game';
 
 async function bootstrap(): Promise<void> {
   const game = new Game();

@@ -3,13 +3,14 @@ import * as THREE from 'three';
 import { makeInPlace, convertToBasic, computeScale } from './gltfUtils';
 import type { SoldierTemplate } from './SoldierTypes';
 
-export async function loadArcherTemplate(): Promise<SoldierTemplate> {
+export async function loadNinjaTemplate(): Promise<SoldierTemplate> {
   const loader = new GLTFLoader();
 
-  const [modelGltf, idleGltf, attackGltf] = await Promise.all([
-    loader.loadAsync('/Archer/Archer.glb'),
-    loader.loadAsync('/Archer/ArcherIdle.glb'),
-    loader.loadAsync('/Archer/ArcherShot.glb'),
+  const [modelGltf, idleGltf, attackGltf, walkGltf] = await Promise.all([
+    loader.loadAsync('/ninja/Ninja.glb'),
+    loader.loadAsync('/ninja/NinjaIdle.glb'),
+    loader.loadAsync('/ninja/NinjaAttack.glb'),
+    loader.loadAsync('/ninja/NinjaWalk.glb'),
   ]);
 
   const scale = computeScale(modelGltf.scene);
@@ -17,13 +18,7 @@ export async function loadArcherTemplate(): Promise<SoldierTemplate> {
 
   const rawIdle   = idleGltf.animations[0]   ?? modelGltf.animations[0];
   const rawAttack = attackGltf.animations[0]  ?? modelGltf.animations[0];
-  let rawWalk = modelGltf.animations[0];
-  try {
-    const walkGltf = await loader.loadAsync('/Archer/ArcherWalk.glb');
-    rawWalk = walkGltf.animations[0] ?? rawWalk;
-  } catch {
-    // walk clip is optional; fall back to model animation
-  }
+  const rawWalk   = walkGltf.animations[0]    ?? modelGltf.animations[0];
 
   const idleClip   = rawIdle   ? makeInPlace(rawIdle)   : new THREE.AnimationClip('idle',   0, []);
   const attackClip = rawAttack ? makeInPlace(rawAttack)  : new THREE.AnimationClip('attack', 0, []);

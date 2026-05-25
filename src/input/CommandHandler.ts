@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { GameState } from '../state/GameState';
+import type { GameState } from '../core/state/GameState';
 
 const FORMATION_SPACING  = 0.9;
 const CLICK_THRESHOLD_PX = 12;

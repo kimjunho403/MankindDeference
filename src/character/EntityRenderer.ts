@@ -1,11 +1,21 @@
 import * as THREE from 'three';
-import type { MonsterData, SoldierData, SoldierType } from '../state/GameState';
-import { progressToPosition } from '../systems/TrackSystem';
-import type { AttackEvent } from '../systems/CombatSystem';
+import type { MonsterData, SoldierData, SoldierType } from '../core/state/GameState';
+import { progressToPosition } from '../core/systems/TrackSystem';
+import type { AttackEvent } from '../core/systems/CombatSystem';
 import type { MonsterTemplate } from './MonsterLoader';
 import { createMonsterInstance } from './MonsterLoader';
 import type { SoldierTemplate, SoldierInstance } from './SoldierTypes';
 import { createSoldierInstance, playAttack, playWalk, playIdle } from './SoldierTypes';
+
+const ROTATE_SPEED = 8; // rad/s
+
+function lerpAngle(current: number, target: number, speed: number, delta: number): number {
+  let diff = target - current;
+  while (diff >  Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  const maxStep = speed * delta;
+  return Math.abs(diff) <= maxStep ? target : current + Math.sign(diff) * maxStep;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +31,7 @@ interface SoldierMeshData {
   instance: SoldierInstance;
   selectionMesh?: THREE.Mesh;
   rangeRing: THREE.Mesh;
+  targetAngle: number;
 }
 
 // ── EntityRenderer ────────────────────────────────────────────────────────────
@@ -141,10 +152,10 @@ export class EntityRenderer {
     group.position.set(soldier.position.x, 0, soldier.position.z);
     this.scene.add(group);
 
-    this.soldiers.set(soldier.id, { group, instance, selectionMesh: sel, rangeRing: ring });
+    this.soldiers.set(soldier.id, { group, instance, selectionMesh: sel, rangeRing: ring, targetAngle: 0 });
   }
 
-  updateSoldierVisuals(soldiers: SoldierData[]): void {
+  updateSoldierVisuals(soldiers: SoldierData[], delta: number): void {
     for (const s of soldiers) {
       const data = this.soldiers.get(s.id);
       if (!data) continue;
@@ -156,22 +167,25 @@ export class EntityRenderer {
       if (s.moveTarget) {
         const dx = s.moveTarget.x - s.position.x;
         const dz = s.moveTarget.z - s.position.z;
-        if (Math.hypot(dx, dz) > 1e-4) instance.model.rotation.y = Math.atan2(dx, dz);
+        if (Math.hypot(dx, dz) > 1e-4) data.targetAngle = Math.atan2(dx, dz);
         playWalk(instance);
       } else {
         playIdle(instance);
       }
+
+      instance.model.rotation.y = lerpAngle(instance.model.rotation.y, data.targetAngle, ROTATE_SPEED, delta);
     }
   }
 
-  updateSoldiers(attacks: AttackEvent[]): void {
+  updateSoldiers(attacks: AttackEvent[], delta: number): void {
     for (const attack of attacks) {
       const data = this.soldiers.get(attack.soldierId);
       if (!data) continue;
 
       const dx = attack.monsterPos.x - attack.soldierPos.x;
       const dz = attack.monsterPos.z - attack.soldierPos.z;
-      data.instance.model.rotation.y = Math.atan2(dx, dz);
+      data.targetAngle = Math.atan2(dx, dz);
+      data.instance.model.rotation.y = lerpAngle(data.instance.model.rotation.y, data.targetAngle, ROTATE_SPEED, delta);
       playAttack(data.instance);
     }
   }

@@ -1,4 +1,4 @@
-import type { GameState } from '../state/GameState';
+import type { GameState } from '../core/state/GameState';
 
 const MONSTER_LIMIT = 100;
 

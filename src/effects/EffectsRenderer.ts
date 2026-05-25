@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { AttackEvent } from '../systems/CombatSystem';
+import type { AttackEvent } from '../core/systems/CombatSystem';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

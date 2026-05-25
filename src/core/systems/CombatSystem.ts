@@ -21,16 +21,12 @@ export function updateMonsterMovement(state: GameState, delta: number): void {
 }
 
 export function updateSoldierMovement(state: GameState, delta: number): void {
-  // Basic movement toward moveTarget
   for (const soldier of state.soldiers) {
     if (!soldier.moveTarget) continue;
     const dx = soldier.moveTarget.x - soldier.position.x;
     const dz = soldier.moveTarget.z - soldier.position.z;
     const dist = Math.hypot(dx, dz);
-    if (dist < 1e-3) {
-      soldier.moveTarget = null;
-      continue;
-    }
+    if (dist < 1e-3) { soldier.moveTarget = null; continue; }
     const maxStep = soldier.moveSpeed * delta;
     if (dist <= maxStep) {
       soldier.position.x = soldier.moveTarget.x;
@@ -42,7 +38,6 @@ export function updateSoldierMovement(state: GameState, delta: number): void {
     }
   }
 
-  // Simple pairwise separation to reduce crowding/collision
   const minDist = 0.6;
   for (let i = 0; i < state.soldiers.length; i++) {
     for (let j = i + 1; j < state.soldiers.length; j++) {
@@ -55,22 +50,12 @@ export function updateSoldierMovement(state: GameState, delta: number): void {
         const overlap = (minDist - d) / 2;
         const nx = dx / d;
         const nz = dz / d;
-        // push a and b away from each other
         a.position.x -= nx * overlap;
         a.position.z -= nz * overlap;
         b.position.x += nx * overlap;
         b.position.z += nz * overlap;
-        // cancel moveTarget if it would immediately push them back into collision
-        if (a.moveTarget) {
-          const adx = a.moveTarget.x - a.position.x;
-          const adz = a.moveTarget.z - a.position.z;
-          if (Math.hypot(adx, adz) < 1e-3) a.moveTarget = null;
-        }
-        if (b.moveTarget) {
-          const bdx = b.moveTarget.x - b.position.x;
-          const bdz = b.moveTarget.z - b.position.z;
-          if (Math.hypot(bdx, bdz) < 1e-3) b.moveTarget = null;
-        }
+        if (a.moveTarget && Math.hypot(a.moveTarget.x - a.position.x, a.moveTarget.z - a.position.z) < 1e-3) a.moveTarget = null;
+        if (b.moveTarget && Math.hypot(b.moveTarget.x - b.position.x, b.moveTarget.z - b.position.z) < 1e-3) b.moveTarget = null;
       }
     }
   }
@@ -81,23 +66,18 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
   const deadIds: number[] = [];
 
   for (const soldier of state.soldiers) {
-    // If soldier is moving, skip combat logic (movement interrupts attacking)
     if (soldier.moveTarget) continue;
 
-    // Drop invalid target (dead or out of range)
     if (soldier.targetId !== null) {
       const target = state.monsters.find(m => m.id === soldier.targetId);
       if (!target || target.hp <= 0) {
         soldier.targetId = null;
       } else {
         const mPos = progressToPosition(target.progress);
-        if (distance2D(soldier.position, mPos) > soldier.attackRange) {
-          soldier.targetId = null;
-        }
+        if (distance2D(soldier.position, mPos) > soldier.attackRange) soldier.targetId = null;
       }
     }
 
-    // Acquire nearest monster in range
     if (soldier.targetId === null) {
       let nearestDist = Infinity;
       for (const monster of state.monsters) {
@@ -111,7 +91,6 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
       }
     }
 
-    // Attack on cooldown
     soldier.attackCooldown = Math.max(0, soldier.attackCooldown - delta);
 
     if (soldier.targetId !== null && soldier.attackCooldown === 0) {
@@ -121,7 +100,6 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
         soldier.attackCooldown = 1 / soldier.attackSpeed;
         target.hp -= soldier.attackDamage;
         attacks.push({ soldierId: soldier.id, soldierPos: soldier.position, monsterPos: mPos, weaponType: soldier.weaponType });
-
         if (target.hp <= 0) {
           deadIds.push(target.id);
           state.gold += 10;
@@ -131,10 +109,7 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
     }
   }
 
-  // Remove dead monsters from state
-  if (deadIds.length > 0) {
-    state.monsters = state.monsters.filter(m => !deadIds.includes(m.id));
-  }
+  if (deadIds.length > 0) state.monsters = state.monsters.filter(m => !deadIds.includes(m.id));
 
   return { deadIds, attacks };
 }

@@ -28,11 +28,7 @@ function crossFade(
   to: THREE.AnimationAction,
   duration: number,
 ): void {
-  if (from === to) {
-    // Re-trigger same action (e.g. rapid attacks)
-    to.reset();
-    return;
-  }
+  if (from === to) { to.reset(); return; }
   to.reset();
   to.play();
   from.crossFadeTo(to, duration, false);
@@ -43,16 +39,14 @@ export function createSoldierInstance(template: SoldierTemplate): SoldierInstanc
   model.scale.setScalar(template.scale);
   floorModel(model);
 
-  const mixer = new THREE.AnimationMixer(model);
-
-  const idleAction   = mixer.clipAction(template.idleClip);
+  const mixer       = new THREE.AnimationMixer(model);
+  const idleAction  = mixer.clipAction(template.idleClip);
   const attackAction = mixer.clipAction(template.attackClip);
-  const walkAction   = mixer.clipAction(template.walkClip);
+  const walkAction  = mixer.clipAction(template.walkClip);
 
   attackAction.setLoop(THREE.LoopOnce, 1);
   attackAction.clampWhenFinished = true;
   walkAction.setLoop(THREE.LoopRepeat, Infinity);
-
   idleAction.play();
 
   const instance: SoldierInstance = {
@@ -60,7 +54,6 @@ export function createSoldierInstance(template: SoldierTemplate): SoldierInstanc
     currentAction: idleAction,
   };
 
-  // attack 끝나면 idle로 crossfade 복귀
   mixer.addEventListener('finished', (e) => {
     const ev = e as THREE.Event & { action: THREE.AnimationAction };
     if (ev.action !== attackAction) return;
@@ -71,13 +64,11 @@ export function createSoldierInstance(template: SoldierTemplate): SoldierInstanc
   return instance;
 }
 
-/** 공격 애니메이션 재생. 현재 어떤 상태에서도 즉시 전환. */
 export function playAttack(instance: SoldierInstance): void {
   crossFade(instance.currentAction, instance.attackAction, FADE_TO_ATTACK);
   instance.currentAction = instance.attackAction;
 }
 
-/** 걷기 전환. 공격 중에는 끊지 않음 — finished 이벤트가 복귀 담당. */
 export function playWalk(instance: SoldierInstance): void {
   if (instance.currentAction === instance.walkAction) return;
   if (instance.currentAction === instance.attackAction) return;
@@ -85,7 +76,6 @@ export function playWalk(instance: SoldierInstance): void {
   instance.currentAction = instance.walkAction;
 }
 
-/** idle 전환. 공격 중에는 끊지 않음. */
 export function playIdle(instance: SoldierInstance): void {
   if (instance.currentAction === instance.idleAction) return;
   if (instance.currentAction === instance.attackAction) return;

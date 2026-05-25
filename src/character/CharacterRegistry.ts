@@ -1,4 +1,4 @@
-import type { SoldierType, WeaponType } from '../state/GameState';
+import type { SoldierType, WeaponType } from '../core/state/GameState';
 import type { SoldierTemplate } from './SoldierTypes';
 import { loadArcherTemplate } from './ArcherLoader';
 import { loadNinjaTemplate } from './NinjaLoader';

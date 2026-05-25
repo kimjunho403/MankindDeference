@@ -3,15 +3,16 @@ import { createGameState, type GameState, type SoldierData } from './state/GameS
 import { randomSoldierPosition } from './systems/TrackSystem';
 import { updateSpawn } from './systems/SpawnSystem';
 import { updateMonsterMovement, updateCombat, updateSoldierMovement } from './systems/CombatSystem';
-import { EntityRenderer } from './rendering/EntityRenderer';
-import { EffectsRenderer } from './rendering/EffectsRenderer';
-import { loadMonsterTemplate } from './rendering/MonsterLoader';
-import { loadAllTemplates, randomSoldierType, getCharacterDef } from './rendering/CharacterRegistry';
-import { createRenderer } from './rendering/RendererFactory';
-import { buildScene } from './Map/MapBuilder';
-import { InputController } from './input/InputController';
-import { CommandHandler } from './input/CommandHandler';
-import { HUD } from './ui/HUD';
+import { EntityRenderer } from '../character/EntityRenderer';
+import { EffectsRenderer } from '../effects/EffectsRenderer';
+import { loadMonsterTemplate } from '../character/MonsterLoader';
+import { loadAllTemplates, randomSoldierType, getCharacterDef } from '../character/CharacterRegistry';
+import { createRenderer } from './RendererFactory';
+import { buildScene } from '../Map/MapBuilder';
+import { CameraController } from '../camera/CameraController';
+import { InputController } from '../input/InputController';
+import { CommandHandler } from '../input/CommandHandler';
+import { HUD } from '../ui/HUD';
 
 const SOLDIER_COST = 20;
 
@@ -23,6 +24,7 @@ export class Game {
   private state!: GameState;
   private entityRenderer!: EntityRenderer;
   private effectsRenderer!: EffectsRenderer;
+  private cameraCtrl!: CameraController;
   private input!: InputController;
   private hud!: HUD;
   private lastTime = 0;
@@ -42,19 +44,16 @@ export class Game {
     const canvas = this.renderer.domElement as HTMLCanvasElement;
     const cmd    = new CommandHandler(canvas, this.state, () => this.camera);
 
+    this.cameraCtrl = new CameraController();
+    this.cameraCtrl.register((aspect, w, h) => {
+      this.camera.aspect = aspect;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(w, h);
+    });
+    this.cameraCtrl.updateCamera(this.camera);
+
     this.input = new InputController();
-    this.input.register(
-      canvas,
-      (aspect, w, h) => {
-        this.camera.aspect = aspect;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(w, h);
-      },
-      cmd.onSelectionRect,
-      cmd.onClick,
-      cmd.onDeselect,
-    );
-    this.input.updateCamera(this.camera);
+    this.input.register(canvas, cmd.onSelectionRect, cmd.onClick, cmd.onDeselect);
 
     const [monsterTemplate, soldierTemplates] = await Promise.all([
       loadMonsterTemplate(),
@@ -82,7 +81,7 @@ export class Game {
   private loop = (time: number): void => {
     const delta = Math.min((time - this.lastTime) / 1000, 0.1);
     this.lastTime = time;
-    this.input.updateCamera(this.camera);
+    this.cameraCtrl.updateCamera(this.camera);
     if (!this.state.gameOver) this.update(delta);
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(this.loop);
@@ -105,8 +104,8 @@ export class Game {
     for (const id of deadIds) this.entityRenderer.removeMonster(id);
 
     this.entityRenderer.updateMonsters(this.state.monsters);
-    this.entityRenderer.updateSoldierVisuals(this.state.soldiers);
-    this.entityRenderer.updateSoldiers(attacks);
+    this.entityRenderer.updateSoldierVisuals(this.state.soldiers, delta);
+    this.entityRenderer.updateSoldiers(attacks, delta);
     this.effectsRenderer.showAttacks(attacks);
     this.effectsRenderer.tickProjectiles(delta);
     this.effectsRenderer.tickParticles(delta);
@@ -129,16 +128,16 @@ export class Game {
     const soldier: SoldierData = {
       id: this.state.nextSoldierId++,
       soldierType,
-      weaponType:    def.weaponType,
-      attackDamage:  def.stats.attackDamage,
-      attackRange:   def.stats.attackRange,
+      weaponType:     def.weaponType,
+      attackDamage:   def.stats.attackDamage,
+      attackRange:    def.stats.attackRange,
       attackCooldown: 0,
-      attackSpeed:   def.stats.attackSpeed,
-      position:      pos,
-      moveTarget:    null,
-      moveSpeed:     def.stats.moveSpeed,
-      selected:      false,
-      targetId:      null,
+      attackSpeed:    def.stats.attackSpeed,
+      position:       pos,
+      moveTarget:     null,
+      moveSpeed:      def.stats.moveSpeed,
+      selected:       false,
+      targetId:       null,
     };
     this.state.soldiers.push(soldier);
     this.entityRenderer.addSoldier(soldier);
