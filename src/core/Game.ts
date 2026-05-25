@@ -5,7 +5,7 @@ import { updateSpawn } from './systems/SpawnSystem';
 import { updateMonsterMovement, updateCombat, updateSoldierMovement } from './systems/CombatSystem';
 import { EntityRenderer } from '../character/EntityRenderer';
 import { EffectsRenderer } from '../effects/EffectsRenderer';
-import { loadMonsterTemplate } from '../character/MonsterLoader';
+import { loadAllMonsterTemplates } from '../character/MonsterRegistry';
 import { loadAllTemplates, randomSoldierType, getCharacterDef } from '../character/CharacterRegistry';
 import { createRenderer } from './RendererFactory';
 import { buildScene } from '../Map/MapBuilder';
@@ -55,11 +55,11 @@ export class Game {
     this.input = new InputController();
     this.input.register(canvas, cmd.onSelectionRect, cmd.onClick, cmd.onDeselect);
 
-    const [monsterTemplate, soldierTemplates] = await Promise.all([
-      loadMonsterTemplate(),
+    const [monsterTemplates, soldierTemplates] = await Promise.all([
+      loadAllMonsterTemplates(),
       loadAllTemplates(),
     ]);
-    this.entityRenderer  = new EntityRenderer(this.scene, monsterTemplate, soldierTemplates);
+    this.entityRenderer  = new EntityRenderer(this.scene, monsterTemplates, soldierTemplates);
     this.effectsRenderer = new EffectsRenderer(this.scene);
     cmd.onMoveIssued = (pt) => this.effectsRenderer.spawnMoveEffect(pt);
     cmd.registerDebugKeys(() => this.entityRenderer.toggleRangeRings());
@@ -82,7 +82,7 @@ export class Game {
     const delta = Math.min((time - this.lastTime) / 1000, 0.1);
     this.lastTime = time;
     this.cameraCtrl.updateCamera(this.camera);
-    if (!this.state.gameOver) this.update(delta);
+    if (!this.state.gameOver && !this.state.won) this.update(delta);
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(this.loop);
   };
@@ -92,8 +92,8 @@ export class Game {
   private update(delta: number): void {
     this.state.gold += this.state.goldPerSecond * delta;
 
-    const newMonster = updateSpawn(this.state, delta);
-    if (newMonster) this.entityRenderer.addMonster(newMonster);
+    const newMonsters = updateSpawn(this.state, delta);
+    for (const m of newMonsters) this.entityRenderer.addMonster(m);
 
     updateMonsterMovement(this.state, delta);
     updateSoldierMovement(this.state, delta);

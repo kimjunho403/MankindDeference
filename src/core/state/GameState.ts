@@ -1,8 +1,13 @@
+import type { MonsterType } from '../systems/StageDefs';
+import { STAGES } from '../systems/StageDefs';
+
+export type { MonsterType };
 export type SoldierType = 'archer' | 'ninja';
 export type WeaponType  = 'arrow' | 'shuriken';
 
 export interface MonsterData {
   id: number;
+  monsterType: MonsterType;
   hp: number;
   maxHp: number;
   speed: number;
@@ -31,9 +36,12 @@ export interface GameState {
   soldiers: SoldierData[];
   nextMonsterId: number;
   nextSoldierId: number;
-  spawnTimer: number;
-  spawnInterval: number;
+  stage: number;
+  stageTimeRemaining: number;
+  spawnTimers: Record<MonsterType, number>;
+  spawnedCounts: Record<MonsterType, number>;
   gameOver: boolean;
+  won: boolean;
 }
 
 export function createGameState(): GameState {
@@ -44,8 +52,11 @@ export function createGameState(): GameState {
     soldiers: [],
     nextMonsterId: 1,
     nextSoldierId: 1,
-    spawnTimer: 0,
-    spawnInterval: 3,
+    stage: 1,
+    stageTimeRemaining: STAGES[0].duration,
+    spawnTimers:   { warrok: 0, jery: 0, mutent: 0 },
+    spawnedCounts: { warrok: 0, jery: 0, mutent: 0 },
     gameOver: false,
+    won: false,
   };
 }

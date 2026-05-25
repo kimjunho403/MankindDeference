@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { MonsterData, SoldierData, SoldierType } from '../core/state/GameState';
+import type { MonsterData, SoldierData, SoldierType, MonsterType } from '../core/state/GameState';
 import { progressToPosition } from '../core/systems/TrackSystem';
 import type { AttackEvent } from '../core/systems/CombatSystem';
 import type { MonsterTemplate } from './MonsterLoader';
@@ -43,7 +43,7 @@ export class EntityRenderer {
 
   constructor(
     private readonly scene: THREE.Scene,
-    private readonly monsterTemplate: MonsterTemplate,
+    private readonly monsterTemplates: Map<MonsterType, MonsterTemplate>,
     private readonly soldierTemplates: Map<SoldierType, SoldierTemplate>,
   ) {}
 
@@ -52,7 +52,9 @@ export class EntityRenderer {
   addMonster(monster: MonsterData): void {
     const group = new THREE.Group();
 
-    const { model, mixer } = createMonsterInstance(this.monsterTemplate);
+    const template = this.monsterTemplates.get(monster.monsterType);
+    if (!template) { console.warn(`No template for monster: ${monster.monsterType}`); return; }
+    const { model, mixer } = createMonsterInstance(template);
     model.traverse(obj => { if (obj instanceof THREE.Mesh) obj.castShadow = true; });
     group.add(model);
 
