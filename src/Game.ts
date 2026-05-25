@@ -4,6 +4,7 @@ import { randomSoldierPosition } from './systems/TrackSystem';
 import { updateSpawn } from './systems/SpawnSystem';
 import { updateMonsterMovement, updateCombat, updateSoldierMovement } from './systems/CombatSystem';
 import { EntityRenderer } from './rendering/EntityRenderer';
+import { EffectsRenderer } from './rendering/EffectsRenderer';
 import { loadMonsterTemplate } from './rendering/MonsterLoader';
 import { loadAllTemplates, randomSoldierType, getCharacterDef } from './rendering/CharacterRegistry';
 import { createRenderer } from './rendering/RendererFactory';
@@ -21,6 +22,7 @@ export class Game {
   private camera!: THREE.PerspectiveCamera;
   private state!: GameState;
   private entityRenderer!: EntityRenderer;
+  private effectsRenderer!: EffectsRenderer;
   private input!: InputController;
   private hud!: HUD;
   private lastTime = 0;
@@ -58,7 +60,9 @@ export class Game {
       loadMonsterTemplate(),
       loadAllTemplates(),
     ]);
-    this.entityRenderer = new EntityRenderer(this.scene, monsterTemplate, soldierTemplates);
+    this.entityRenderer  = new EntityRenderer(this.scene, monsterTemplate, soldierTemplates);
+    this.effectsRenderer = new EffectsRenderer(this.scene);
+    cmd.onMoveIssued = (pt) => this.effectsRenderer.spawnMoveEffect(pt);
     cmd.registerDebugKeys(() => this.entityRenderer.toggleRangeRings());
 
     this.hud = new HUD();
@@ -103,9 +107,10 @@ export class Game {
     this.entityRenderer.updateMonsters(this.state.monsters);
     this.entityRenderer.updateSoldierVisuals(this.state.soldiers);
     this.entityRenderer.updateSoldiers(attacks);
-    this.entityRenderer.showAttacks(attacks);
-    this.entityRenderer.tickArrows(delta);
-    this.entityRenderer.tickParticles(delta);
+    this.effectsRenderer.showAttacks(attacks);
+    this.effectsRenderer.tickProjectiles(delta);
+    this.effectsRenderer.tickParticles(delta);
+    this.effectsRenderer.tickMoveEffects(delta);
     this.entityRenderer.tickAnimations(delta);
 
     this.hud.update(this.state);

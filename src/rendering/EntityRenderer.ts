@@ -23,113 +23,18 @@ interface SoldierMeshData {
   rangeRing: THREE.Mesh;
 }
 
-interface Projectile {
-  mesh: THREE.Group;
-  from: THREE.Vector3;
-  to: THREE.Vector3;
-  progress: number;
-  duration: number;
-  arcHeight: number;
-  weaponType: string;
-  spinAngle: number;
-  spinSpeed: number;
-}
-
-interface HitParticle {
-  mesh: THREE.Mesh;
-  velocity: THREE.Vector3;
-  life: number;
-  maxLife: number;
-}
-
-interface WeaponEffectHandler {
-  createProjectile(): THREE.Group;
-  arcHeight(dist: number): number;
-  flightDuration(dist: number): number;
-  spinSpeed: number;
-  onHit(pos: THREE.Vector3): void;
-}
-
-// ── Projectile mesh factories ─────────────────────────────────────────────────
-
-function createArrowMesh(): THREE.Group {
-  const arrow = new THREE.Group();
-
-  const shaft = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.025, 0.025, 0.38, 6),
-    new THREE.MeshBasicMaterial({ color: 0xb8864e }),
-  );
-  shaft.rotation.x = -Math.PI / 2;
-  arrow.add(shaft);
-
-  const tip = new THREE.Mesh(
-    new THREE.ConeGeometry(0.05, 0.16, 6),
-    new THREE.MeshBasicMaterial({ color: 0x555555 }),
-  );
-  tip.rotation.x = -Math.PI / 2;
-  tip.position.z = 0.19 + 0.08;
-  arrow.add(tip);
-
-  return arrow;
-}
-
-function createShurikenMesh(): THREE.Group {
-  const group = new THREE.Group();
-  const mat = new THREE.MeshBasicMaterial({ color: 0xaaaacc, side: THREE.DoubleSide });
-
-  // Four blades rotated 45° apart
-  for (let i = 0; i < 4; i++) {
-    const blade = new THREE.Mesh(
-      new THREE.ConeGeometry(0.04, 0.22, 3),
-      mat,
-    );
-    blade.rotation.z = (i / 4) * Math.PI * 2;
-    blade.position.x = Math.sin((i / 4) * Math.PI * 2) * 0.07;
-    blade.position.y = Math.cos((i / 4) * Math.PI * 2) * 0.07;
-    group.add(blade);
-  }
-
-  // Flat disc center
-  const disc = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.06, 0.06, 0.03, 8),
-    new THREE.MeshBasicMaterial({ color: 0x888899 }),
-  );
-  group.add(disc);
-
-  return group;
-}
-
-// ── EntityRenderer ─────────────────────────────────────────────────────────────
+// ── EntityRenderer ────────────────────────────────────────────────────────────
 
 export class EntityRenderer {
-  private monsters  = new Map<number, MonsterMeshData>();
-  private soldiers  = new Map<number, SoldierMeshData>();
-  private projectiles: Projectile[] = [];
-  private hitParticles: HitParticle[] = [];
-  private readonly weaponHandlers = new Map<string, WeaponEffectHandler>();
+  private monsters = new Map<number, MonsterMeshData>();
+  private soldiers = new Map<number, SoldierMeshData>();
   private showRangeRings = false;
 
   constructor(
-    private scene: THREE.Scene,
-    private monsterTemplate: MonsterTemplate,
-    private soldierTemplates: Map<SoldierType, SoldierTemplate>,
-  ) {
-    this.weaponHandlers.set('arrow', {
-      createProjectile: createArrowMesh,
-      arcHeight: (dist) => Math.max(0.8, dist * 0.2),
-      flightDuration: (dist) => 0.1 + dist * 0.01,
-      spinSpeed: 0,
-      onHit: (pos) => this.spawnBloodSplash(pos),
-    });
-
-    this.weaponHandlers.set('shuriken', {
-      createProjectile: createShurikenMesh,
-      arcHeight: (dist) => Math.max(0.3, dist * 0.08),
-      flightDuration: (dist) => 0.08 + dist * 0.008,
-      spinSpeed: 18,
-      onHit: (pos) => this.spawnBloodSplash(pos),
-    });
-  }
+    private readonly scene: THREE.Scene,
+    private readonly monsterTemplate: MonsterTemplate,
+    private readonly soldierTemplates: Map<SoldierType, SoldierTemplate>,
+  ) {}
 
   // ── Monster ───────────────────────────────────────────────────────────────
 
@@ -142,7 +47,7 @@ export class EntityRenderer {
 
     const HP_BAR_W = 1.0;
     const HP_BAR_H = 0.1;
-    const HP_Y = 2.2;
+    const HP_Y     = 2.2;
 
     const hpBg = new THREE.Mesh(
       new THREE.PlaneGeometry(HP_BAR_W, HP_BAR_H),
@@ -226,12 +131,7 @@ export class EntityRenderer {
 
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(soldier.attackRange - 0.05, soldier.attackRange, 48),
-      new THREE.MeshBasicMaterial({
-        color: 0x3377ff,
-        opacity: 0.15,
-        transparent: true,
-        side: THREE.DoubleSide,
-      }),
+      new THREE.MeshBasicMaterial({ color: 0x3377ff, opacity: 0.15, transparent: true, side: THREE.DoubleSide }),
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.02;
@@ -256,9 +156,7 @@ export class EntityRenderer {
       if (s.moveTarget) {
         const dx = s.moveTarget.x - s.position.x;
         const dz = s.moveTarget.z - s.position.z;
-        if (Math.hypot(dx, dz) > 1e-4) {
-          instance.model.rotation.y = Math.atan2(dx, dz);
-        }
+        if (Math.hypot(dx, dz) > 1e-4) instance.model.rotation.y = Math.atan2(dx, dz);
         playWalk(instance);
       } else {
         playIdle(instance);
@@ -274,7 +172,6 @@ export class EntityRenderer {
       const dx = attack.monsterPos.x - attack.soldierPos.x;
       const dz = attack.monsterPos.z - attack.soldierPos.z;
       data.instance.model.rotation.y = Math.atan2(dx, dz);
-
       playAttack(data.instance);
     }
   }
@@ -289,116 +186,7 @@ export class EntityRenderer {
   // ── Animations ────────────────────────────────────────────────────────────
 
   tickAnimations(delta: number): void {
-    for (const data of this.monsters.values()) {
-      data.mixer.update(delta);
-    }
-    for (const data of this.soldiers.values()) {
-      data.instance.mixer.update(delta);
-    }
-  }
-
-  // ── Attack effects ────────────────────────────────────────────────────────
-
-  showAttacks(events: AttackEvent[]): void {
-    for (const ev of events) {
-      const handler = this.weaponHandlers.get(ev.weaponType) ?? this.weaponHandlers.get('arrow')!;
-      const from = new THREE.Vector3(ev.soldierPos.x, 1.2, ev.soldierPos.z);
-      const to   = new THREE.Vector3(ev.monsterPos.x, 0.8, ev.monsterPos.z);
-      const dist = from.distanceTo(to);
-
-      const mesh = handler.createProjectile();
-      mesh.position.copy(from);
-      this.scene.add(mesh);
-
-      this.projectiles.push({
-        mesh,
-        from,
-        to,
-        progress: 0,
-        duration: handler.flightDuration(dist),
-        arcHeight: handler.arcHeight(dist),
-        weaponType: ev.weaponType,
-        spinAngle: 0,
-        spinSpeed: handler.spinSpeed,
-      });
-    }
-  }
-
-  tickArrows(delta: number): void {
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const p = this.projectiles[i];
-      p.progress += delta / p.duration;
-
-      if (p.progress >= 1) {
-        this.scene.remove(p.mesh);
-        p.mesh.traverse((obj: THREE.Object3D) => {
-          if (obj instanceof THREE.Mesh) {
-            obj.geometry.dispose();
-            (obj.material as THREE.Material).dispose();
-          }
-        });
-        this.projectiles.splice(i, 1);
-        this.weaponHandlers.get(p.weaponType)?.onHit(p.to);
-        continue;
-      }
-
-      const t = p.progress;
-      const pos = new THREE.Vector3().lerpVectors(p.from, p.to, t);
-      pos.y += 4 * p.arcHeight * t * (1 - t);
-
-      const tAhead = Math.min(t + 0.05, 0.99);
-      const ahead = new THREE.Vector3().lerpVectors(p.from, p.to, tAhead);
-      ahead.y += 4 * p.arcHeight * tAhead * (1 - tAhead);
-
-      p.mesh.position.copy(pos);
-      if (ahead.distanceTo(pos) > 1e-4) p.mesh.lookAt(ahead);
-
-      if (p.spinSpeed > 0) {
-        p.spinAngle += p.spinSpeed * delta;
-        p.mesh.rotateZ(p.spinSpeed * delta);
-      }
-    }
-  }
-
-  tickParticles(delta: number): void {
-    for (let i = this.hitParticles.length - 1; i >= 0; i--) {
-      const p = this.hitParticles[i];
-      p.velocity.y -= 9.8 * delta;
-      p.mesh.position.addScaledVector(p.velocity, delta);
-      p.life -= delta;
-      (p.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, p.life / p.maxLife);
-      if (p.life <= 0) {
-        this.scene.remove(p.mesh);
-        p.mesh.geometry.dispose();
-        (p.mesh.material as THREE.Material).dispose();
-        this.hitParticles.splice(i, 1);
-      }
-    }
-  }
-
-  private spawnBloodSplash(pos: THREE.Vector3): void {
-    const COUNT = 7;
-    for (let i = 0; i < COUNT; i++) {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.06, 4, 4),
-        new THREE.MeshBasicMaterial({ color: 0xcc1111, transparent: true, opacity: 1 }),
-      );
-      mesh.position.copy(pos);
-      this.scene.add(mesh);
-
-      const angle = (i / COUNT) * Math.PI * 2 + Math.random() * 0.5;
-      const speed = 1.5 + Math.random() * 2;
-      const maxLife = 0.3 + Math.random() * 0.1;
-      this.hitParticles.push({
-        mesh,
-        velocity: new THREE.Vector3(
-          Math.cos(angle) * speed,
-          1.5 + Math.random() * 2,
-          Math.sin(angle) * speed,
-        ),
-        life: maxLife,
-        maxLife,
-      });
-    }
+    for (const data of this.monsters.values()) data.mixer.update(delta);
+    for (const data of this.soldiers.values()) data.instance.mixer.update(delta);
   }
 }

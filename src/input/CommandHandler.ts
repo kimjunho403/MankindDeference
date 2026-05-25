@@ -37,6 +37,8 @@ export class CommandHandler {
     for (const s of this.state.soldiers) s.selected = false;
   };
 
+  onMoveIssued?: (point: THREE.Vector3) => void;
+
   // ── Debug key bindings ────────────────────────────────────────────────────
 
   registerDebugKeys(onRangeToggle: () => void): void {
@@ -55,6 +57,8 @@ export class CommandHandler {
     ray.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.getCamera());
     const point = new THREE.Vector3();
     if (!ray.ray.intersectPlane(GROUND_PLANE, point)) return;
+
+    this.onMoveIssued?.(point.clone());
 
     const selected = this.state.soldiers.filter(s => s.selected);
     const cols = Math.ceil(Math.sqrt(selected.length));
