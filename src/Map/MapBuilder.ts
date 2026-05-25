@@ -2,9 +2,11 @@ import * as THREE from 'three';
 import { addGround } from './Ground';
 import { addTrack } from './Track';
 import { addTrees } from './Trees';
+import { addSkyBox } from './SkyBox';
 
 export function buildScene(scene: THREE.Scene): void {
   addLights(scene);
+  addSkyBox(scene);
   addGround(scene);
   addTrack(scene);
   addTrees(scene);

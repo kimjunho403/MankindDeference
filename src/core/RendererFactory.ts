@@ -22,7 +22,6 @@ export async function createRenderer(): Promise<RendererBundle> {
   await renderer.init();
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x141420);
 
   const camera = new THREE.PerspectiveCamera(
     55, window.innerWidth / window.innerHeight, 0.1, 200,

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 const CAM_BASE_Y    = 18;
-const CAM_BASE_Z    = 7;
+const CAM_BASE_Z    = 10;
 const CAM_ZOOM_MIN  = 0.45;
 const CAM_ZOOM_MAX  = 2.8;
 const CAM_ZOOM_STEP = 0.12;
