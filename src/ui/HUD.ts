@@ -16,9 +16,19 @@ export class HUD {
   private stageNumEl     = document.getElementById('stage-num')!;
   private stageTimerEl   = document.getElementById('stage-timer')!;
   private victoryEl      = document.getElementById('victory')!;
+  private notifContainer = document.getElementById('spawn-notifications')!;
 
   onSpawnSoldier(cb: () => void): void {
     this.spawnBtn.addEventListener('click', cb);
+  }
+
+  showSpawnNotification(charLabel: string, gradeLabel: string, gradeColor: number): void {
+    const el = document.createElement('div');
+    el.className = 'spawn-notif';
+    el.style.color = '#' + gradeColor.toString(16).padStart(6, '0');
+    el.textContent = `${charLabel} (${gradeLabel}) 소환!`;
+    this.notifContainer.prepend(el);
+    setTimeout(() => el.remove(), 2500);
   }
 
   update(state: GameState): void {

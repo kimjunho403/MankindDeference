@@ -1,5 +1,7 @@
 import type { MonsterType } from '../systems/StageDefs';
 import { STAGES } from '../systems/StageDefs';
+import type { Grade } from '../systems/GradeDefs';
+export type { Grade };
 
 export type { MonsterType };
 export type SoldierType = 'archer' | 'ninja' | 'paladin';
@@ -17,6 +19,7 @@ export interface MonsterData {
 export interface SoldierData {
   id: number;
   soldierType: SoldierType;
+  grade: Grade;
   attackDamage: number;
   attackRange: number;
   attackCooldown: number;
@@ -54,7 +57,7 @@ export interface GameState {
 
 export function createGameState(): GameState {
   return {
-    gold: 100,
+    gold: 100000,
     goldPerSecond: 3,
     monsters: [],
     soldiers: [],

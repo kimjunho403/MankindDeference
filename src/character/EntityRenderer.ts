@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { MonsterData, SoldierData, SoldierType, MonsterType } from '../core/state/GameState';
 import { progressToPosition } from '../core/systems/TrackSystem';
+import { getGradeDef } from '../core/systems/GradeDefs';
 import type { AttackEvent } from '../core/systems/CombatSystem';
 import type { MonsterTemplate } from './MonsterLoader';
 import { createMonsterInstance } from './MonsterLoader';
@@ -150,6 +151,17 @@ export class EntityRenderer {
     ring.position.y = 0.02;
     ring.visible = this.showRangeRings;
     group.add(ring);
+
+    if (soldier.grade !== 'normal') {
+      const gradeDef = getGradeDef(soldier.grade);
+      const gradeRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.30, 0.42, 32),
+        new THREE.MeshBasicMaterial({ color: gradeDef.color, side: THREE.DoubleSide }),
+      );
+      gradeRing.rotation.x = -Math.PI / 2;
+      gradeRing.position.y = 0.03;
+      group.add(gradeRing);
+    }
 
     group.position.set(soldier.position.x, 0, soldier.position.z);
     this.scene.add(group);

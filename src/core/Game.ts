@@ -7,6 +7,7 @@ import { EntityRenderer } from '../character/EntityRenderer';
 import { EffectsRenderer } from '../effects/EffectsRenderer';
 import { loadAllMonsterTemplates } from '../character/MonsterRegistry';
 import { loadAllTemplates, randomSoldierType, getCharacterDef } from '../character/CharacterRegistry';
+import { rollGrade, getGradeDef } from './systems/GradeDefs';
 import { createRenderer } from './RendererFactory';
 import { buildScene } from '../Map/MapBuilder';
 import { CameraController } from '../camera/CameraController';
@@ -124,24 +125,29 @@ export class Game {
 
     const soldierType = randomSoldierType();
     const def = getCharacterDef(soldierType);
+    const grade = rollGrade();
+    const gradeDef = getGradeDef(grade);
+    const m = gradeDef.multipliers;
     const pos = randomSoldierPosition();
 
     const soldier: SoldierData = {
       id: this.state.nextSoldierId++,
       soldierType,
+      grade,
       weaponType:     def.weaponType,
-      attackDamage:   def.stats.attackDamage,
-      attackRange:    def.stats.attackRange,
+      attackDamage:   def.stats.attackDamage  * m.attackDamage,
+      attackRange:    def.stats.attackRange   * m.attackRange,
       attackCooldown: 0,
-      attackSpeed:    def.stats.attackSpeed,
+      attackSpeed:    def.stats.attackSpeed   * m.attackSpeed,
       attackHitDelay: def.attackHitDelay ?? 0,
       position:       pos,
       moveTarget:     null,
-      moveSpeed:      def.stats.moveSpeed,
+      moveSpeed:      def.stats.moveSpeed     * m.moveSpeed,
       selected:       false,
       targetId:       null,
     };
     this.state.soldiers.push(soldier);
     this.entityRenderer.addSoldier(soldier);
+    this.hud.showSpawnNotification(def.label, gradeDef.label, gradeDef.color);
   }
 }
