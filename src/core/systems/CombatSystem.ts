@@ -6,6 +6,7 @@ export interface AttackEvent {
   soldierPos: { x: number; z: number };
   monsterPos: { x: number; z: number };
   weaponType: WeaponType;
+  hitDelay: number;  // 데미지 판정까지의 딜레이 (초). 0이면 즉시
 }
 
 export interface CombatResult {
@@ -65,6 +66,22 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
   const attacks: AttackEvent[] = [];
   const deadIds: number[] = [];
 
+  // ── 1. 비행 중인 데미지 타이머 처리 (근접 타격 구간 진입 시 실제 피해 적용) ──
+  for (let i = state.pendingDamages.length - 1; i >= 0; i--) {
+    const pd = state.pendingDamages[i];
+    pd.timer -= delta;
+    if (pd.timer > 0) continue;
+    state.pendingDamages.splice(i, 1);
+    const target = state.monsters.find(m => m.id === pd.monsterId);
+    if (!target || target.hp <= 0) continue;
+    target.hp -= pd.damage;
+    if (target.hp <= 0) {
+      deadIds.push(target.id);
+      state.gold += 10;
+    }
+  }
+
+  // ── 2. 병사 공격 처리 ──────────────────────────────────────────────────────────
   for (const soldier of state.soldiers) {
     if (soldier.moveTarget) continue;
 
@@ -98,13 +115,21 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
       if (target) {
         const mPos = progressToPosition(target.progress);
         soldier.attackCooldown = 1 / soldier.attackSpeed;
-        target.hp -= soldier.attackDamage;
-        attacks.push({ soldierId: soldier.id, soldierPos: soldier.position, monsterPos: mPos, weaponType: soldier.weaponType });
-        if (target.hp <= 0) {
-          deadIds.push(target.id);
-          state.gold += 10;
-          soldier.targetId = null;
+        const hitDelay = soldier.attackHitDelay;
+
+        if (hitDelay > 0) {
+          // 선딜레이 후 타격 구간에서 피해 적용
+          state.pendingDamages.push({ timer: hitDelay, monsterId: target.id, damage: soldier.attackDamage });
+        } else {
+          target.hp -= soldier.attackDamage;
+          if (target.hp <= 0) {
+            deadIds.push(target.id);
+            state.gold += 10;
+            soldier.targetId = null;
+          }
         }
+
+        attacks.push({ soldierId: soldier.id, soldierPos: soldier.position, monsterPos: mPos, weaponType: soldier.weaponType, hitDelay });
       }
     }
   }

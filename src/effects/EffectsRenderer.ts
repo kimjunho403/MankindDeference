@@ -34,6 +34,14 @@ interface WeaponEffectHandler {
   arcHeight(dist: number): number;
   flightDuration(dist: number): number;
   spinSpeed: number;
+  instant?: boolean;    // true면 투사체 없이 hitDelay 후 onHit 호출
+  hitDelay?: number;    // instant 무기의 이펙트 딜레이 (초)
+  onHit?(pos: THREE.Vector3): void;
+}
+
+interface PendingHit {
+  timer: number;
+  pos: THREE.Vector3;
   onHit(pos: THREE.Vector3): void;
 }
 
@@ -86,6 +94,7 @@ export class EffectsRenderer {
   private projectiles: Projectile[] = [];
   private hitParticles: HitParticle[] = [];
   private moveEffects: MoveEffect[] = [];
+  private pendingHits: PendingHit[] = [];
   private readonly weaponHandlers = new Map<string, WeaponEffectHandler>();
 
   constructor(private readonly scene: THREE.Scene) {
@@ -104,6 +113,15 @@ export class EffectsRenderer {
       spinSpeed: 18,
       onHit: (pos) => this.spawnBloodSplash(pos),
     });
+
+    this.weaponHandlers.set('melee', {
+      createProjectile: () => new THREE.Group(),
+      arcHeight: () => 0,
+      flightDuration: () => 0,
+      spinSpeed: 0,
+      instant: true,
+      hitDelay: 0,  // 실제 딜레이는 AttackEvent.hitDelay에서 읽음
+    });
   }
 
   // ── 투사체 ────────────────────────────────────────────────────────────────
@@ -113,6 +131,18 @@ export class EffectsRenderer {
       const handler = this.weaponHandlers.get(ev.weaponType) ?? this.weaponHandlers.get('arrow')!;
       const from = new THREE.Vector3(ev.soldierPos.x, 1.2, ev.soldierPos.z);
       const to   = new THREE.Vector3(ev.monsterPos.x, 0.8, ev.monsterPos.z);
+
+      if (handler.instant) {
+        // hitDelay는 CombatSystem과 같은 값(AttackEvent)으로 동기화
+        const delay = ev.hitDelay;
+        if (delay > 0) {
+          if (handler.onHit) this.pendingHits.push({ timer: delay, pos: to.clone(), onHit: handler.onHit.bind(handler) });
+        } else {
+          handler.onHit?.(to);
+        }
+        continue;
+      }
+
       const dist = from.distanceTo(to);
 
       const mesh = handler.createProjectile();
@@ -143,7 +173,7 @@ export class EffectsRenderer {
           }
         });
         this.projectiles.splice(i, 1);
-        this.weaponHandlers.get(p.weaponType)?.onHit(p.to);
+        this.weaponHandlers.get(p.weaponType)?.onHit?.(p.to);
         continue;
       }
 
@@ -158,6 +188,19 @@ export class EffectsRenderer {
       p.mesh.position.copy(pos);
       if (ahead.distanceTo(pos) > 1e-4) p.mesh.lookAt(ahead);
       if (p.spinSpeed > 0) p.mesh.rotateZ(p.spinSpeed * delta);
+    }
+  }
+
+  // ── 근거리 히트 딜레이 큐 ─────────────────────────────────────────────────
+
+  tickPendingHits(delta: number): void {
+    for (let i = this.pendingHits.length - 1; i >= 0; i--) {
+      const h = this.pendingHits[i];
+      h.timer -= delta;
+      if (h.timer <= 0) {
+        h.onHit(h.pos);
+        this.pendingHits.splice(i, 1);
+      }
     }
   }
 

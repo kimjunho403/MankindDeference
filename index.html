@@ -76,6 +76,44 @@
     }
     #btn-restart:hover { background: #3a5aaa; }
 
+    #stage-panel {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: #fff;
+      z-index: 10;
+      pointer-events: none;
+      text-shadow: 1px 1px 4px #000;
+    }
+    #stage-label {
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: #aaccff;
+      font-weight: bold;
+    }
+    #stage-timer {
+      font-size: 32px;
+      font-weight: bold;
+      line-height: 1.1;
+    }
+
+    #victory {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: white;
+    }
+    #victory.visible { display: flex; }
+    #victory h1 { font-size: 52px; color: #ffd700; }
+    #victory p  { font-size: 18px; color: #aaa; margin-top: 12px; }
+
     #loading {
       position: fixed;
       inset: 0;
@@ -91,6 +129,11 @@
 </head>
 <body>
   <div id="loading">⏳ 로딩 중...</div>
+
+  <div id="stage-panel">
+    <div id="stage-label">STAGE <span id="stage-num">1</span></div>
+    <div id="stage-timer">1:00</div>
+  </div>
 
   <div id="stats">
     <div>💰 골드 &nbsp;&nbsp;&nbsp;&nbsp;<span class="val" id="gold">100</span></div>
@@ -109,6 +152,12 @@
     <h1>💀 패배!</h1>
     <p>몬스터가 100마리를 넘었습니다</p>
     <button id="btn-restart" onclick="location.reload()">다시 시작</button>
+  </div>
+
+  <div id="victory">
+    <h1>🏆 승리!</h1>
+    <p>모든 스테이지를 클리어했습니다</p>
+    <button id="btn-restart-v" onclick="location.reload()">다시 시작</button>
   </div>
 
   <script type="module" src="/src/main.ts"></script>

@@ -12,6 +12,7 @@ export interface SoldierTemplate {
   attackClip: THREE.AnimationClip;
   walkClip: THREE.AnimationClip;
   scale: number;
+  attackTimeScale?: number;  // 공격 애니메이션 재생 속도 (기본값 1.0)
 }
 
 export interface SoldierInstance {
@@ -46,6 +47,7 @@ export function createSoldierInstance(template: SoldierTemplate): SoldierInstanc
 
   attackAction.setLoop(THREE.LoopOnce, 1);
   attackAction.clampWhenFinished = true;
+  attackAction.timeScale = template.attackTimeScale ?? 1;
   walkAction.setLoop(THREE.LoopRepeat, Infinity);
   idleAction.play();
 

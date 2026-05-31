@@ -16,19 +16,19 @@ export const STAGES: StageDef[] = [
   {
     duration: 30,
     monsters: [
-      { type: 'jery',   spawnInterval: 2, maxCount: 25 },
+      { type: 'jery',   spawnInterval: 1.5, maxCount: 25 },
     ],
   },
   {
     duration: 30,
     monsters: [
-      { type: 'mutent', spawnInterval: 2 },
+      { type: 'mutent', spawnInterval: 1.5 },
     ],
   },
   {
     duration: 30,
     monsters: [
-      { type: 'warrok', spawnInterval: 2 },
+      { type: 'warrok', spawnInterval: 1.5 },
     ],
   },
 ];

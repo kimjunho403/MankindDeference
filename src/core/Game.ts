@@ -108,6 +108,7 @@ export class Game {
     this.entityRenderer.updateSoldiers(attacks, delta);
     this.effectsRenderer.showAttacks(attacks);
     this.effectsRenderer.tickProjectiles(delta);
+    this.effectsRenderer.tickPendingHits(delta);
     this.effectsRenderer.tickParticles(delta);
     this.effectsRenderer.tickMoveEffects(delta);
     this.entityRenderer.tickAnimations(delta);
@@ -133,6 +134,7 @@ export class Game {
       attackRange:    def.stats.attackRange,
       attackCooldown: 0,
       attackSpeed:    def.stats.attackSpeed,
+      attackHitDelay: def.attackHitDelay ?? 0,
       position:       pos,
       moveTarget:     null,
       moveSpeed:      def.stats.moveSpeed,

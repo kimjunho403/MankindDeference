@@ -2,8 +2,8 @@ import type { MonsterType } from '../systems/StageDefs';
 import { STAGES } from '../systems/StageDefs';
 
 export type { MonsterType };
-export type SoldierType = 'archer' | 'ninja';
-export type WeaponType  = 'arrow' | 'shuriken';
+export type SoldierType = 'archer' | 'ninja' | 'paladin';
+export type WeaponType  = 'arrow' | 'shuriken' | 'melee';
 
 export interface MonsterData {
   id: number;
@@ -21,12 +21,19 @@ export interface SoldierData {
   attackRange: number;
   attackCooldown: number;
   attackSpeed: number;
+  attackHitDelay: number;  // 공격 시작 후 실제 데미지 적용까지의 딜레이 (초). 0이면 즉시
   position: { x: number; z: number };
   moveTarget: { x: number; z: number } | null;
   moveSpeed: number;
   selected: boolean;
   targetId: number | null;
   weaponType: WeaponType;
+}
+
+export interface PendingDamage {
+  timer: number;
+  monsterId: number;
+  damage: number;
 }
 
 export interface GameState {
@@ -40,6 +47,7 @@ export interface GameState {
   stageTimeRemaining: number;
   spawnTimers: Record<MonsterType, number>;
   spawnedCounts: Record<MonsterType, number>;
+  pendingDamages: PendingDamage[];
   gameOver: boolean;
   won: boolean;
 }
@@ -56,6 +64,7 @@ export function createGameState(): GameState {
     stageTimeRemaining: STAGES[0].duration,
     spawnTimers:   { warrok: 0, jery: 0, mutent: 0 },
     spawnedCounts: { warrok: 0, jery: 0, mutent: 0 },
+    pendingDamages: [],
     gameOver: false,
     won: false,
   };
