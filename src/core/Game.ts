@@ -15,6 +15,8 @@ import { CameraController } from '../camera/CameraController';
 import { InputController } from '../input/InputController';
 import { CommandHandler } from '../input/CommandHandler';
 import { HUD } from '../ui/HUD';
+import { PortraitRenderer } from '../character/PortraitRenderer';
+import { SelectionPanel } from '../ui/SelectionPanel';
 
 const SOLDIER_COST = 20;
 
@@ -29,6 +31,8 @@ export class Game {
   private cameraCtrl!: CameraController;
   private input!: InputController;
   private hud!: HUD;
+  private portraitRenderer!: PortraitRenderer;
+  private selectionPanel!: SelectionPanel;
   private lastTime = 0;
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -69,6 +73,12 @@ export class Game {
     this.hud = new HUD();
     this.hud.onSpawnSoldier(() => this.trySpawnSoldier());
     this.hud.onUpgrade((trait) => this.tryUpgrade(trait));
+
+    this.portraitRenderer = new PortraitRenderer(soldierTemplates);
+    this.selectionPanel   = new SelectionPanel(this.portraitRenderer);
+    this.selectionPanel.onFocusSoldier((id) => {
+      for (const s of this.state.soldiers) s.selected = s.id === id;
+    });
 
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'none';
@@ -117,6 +127,8 @@ export class Game {
     this.entityRenderer.tickAnimations(delta);
 
     this.hud.update(this.state);
+    this.portraitRenderer.tick(delta);
+    this.selectionPanel.update(this.state.soldiers, this.state.upgrades);
   }
 
   // ── Upgrade ───────────────────────────────────────────────────────────────
