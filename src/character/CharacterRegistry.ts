@@ -1,4 +1,5 @@
 import type { SoldierType, WeaponType } from '../core/state/GameState';
+import type { Trait } from '../core/systems/UpgradeDefs';
 import type { SoldierTemplate } from './SoldierTypes';
 import { loadArcherTemplate } from './ArcherLoader';
 import { loadNinjaTemplate } from './NinjaLoader';
@@ -7,6 +8,7 @@ import { loadPaladinTemplate } from './PaladinLoader';
 export interface CharacterDef {
   soldierType: SoldierType;
   label: string;  // 한글 표기명
+  trait: Trait;
   weaponType: WeaponType;
   attackHitDelay?: number;  // 공격 모션 시작 후 데미지 판정까지의 딜레이 (초). 기본값 0
   stats: {
@@ -22,6 +24,7 @@ export const CHARACTER_DEFS: CharacterDef[] = [
   {
     soldierType: 'archer',
     label: '아처',
+    trait: 'ranged',
     weaponType: 'arrow',
     stats: { attackDamage: 10, attackRange: 4, attackSpeed: 2, moveSpeed: 3 },
     load: loadArcherTemplate,
@@ -29,6 +32,7 @@ export const CHARACTER_DEFS: CharacterDef[] = [
   {
     soldierType: 'ninja',
     label: '닌자',
+    trait: 'explosive',
     weaponType: 'shuriken',
     stats: { attackDamage: 10, attackRange: 4, attackSpeed: 1, moveSpeed: 3 },
     load: loadNinjaTemplate,
@@ -36,6 +40,7 @@ export const CHARACTER_DEFS: CharacterDef[] = [
   {
     soldierType: 'paladin',
     label: '팔라딘',
+    trait: 'melee',
     weaponType: 'melee',
     attackHitDelay: 0.35,  // 선딜레이(Anticipation) 이후 타격 구간(Active) 진입 시점
     stats: { attackDamage: 25, attackRange: 1.5, attackSpeed: 1.5, moveSpeed: 2.5 },

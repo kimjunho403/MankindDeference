@@ -19,7 +19,7 @@ export interface GradeDef {
 
 // ★ 확률 조정: weight 값만 변경하면 됨 (합산 대비 비율로 계산)
 export const GRADE_DEFS: GradeDef[] = [
-  { grade: 'normal',       label: '일반',   color: 0xffffff, weight: 500, multipliers: { attackDamage: 1.0,  attackRange: 1.0,  attackSpeed: 1.0,  moveSpeed: 1.0  } },
+  { grade: 'normal',       label: '일반',   color: 0xffffff, weight: 450, multipliers: { attackDamage: 1.0,  attackRange: 1.0,  attackSpeed: 1.0,  moveSpeed: 1.0  } },
   { grade: 'rare',         label: '레어',   color: 0x4499ff, weight: 300,  multipliers: { attackDamage: 1.5,  attackRange: 1.1,  attackSpeed: 1.1,  moveSpeed: 1.05 } },
   { grade: 'epic',         label: '에픽',   color: 0xaa44ff, weight: 100,  multipliers: { attackDamage: 2.0,  attackRange: 1.2,  attackSpeed: 1.2,  moveSpeed: 1.1  } },
   { grade: 'unique',       label: '유니크', color: 0xff8800, weight: 30,   multipliers: { attackDamage: 3.0,  attackRange: 1.4,  attackSpeed: 1.4,  moveSpeed: 1.15 } },

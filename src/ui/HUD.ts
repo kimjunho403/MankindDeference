@@ -1,4 +1,6 @@
 import type { GameState } from '../core/state/GameState';
+import { TRAIT_DEFS, upgradeCost, damageMultiplier, UPGRADE_MAX_LEVEL } from '../core/systems/UpgradeDefs';
+import type { Trait } from '../core/systems/UpgradeDefs';
 
 const MONSTER_LIMIT = 100;
 
@@ -18,8 +20,50 @@ export class HUD {
   private victoryEl      = document.getElementById('victory')!;
   private notifContainer = document.getElementById('spawn-notifications')!;
 
+  private upgradeCards: Map<Trait, {
+    levelEl: HTMLElement;
+    bonusEl: HTMLElement;
+    costEl:  HTMLElement;
+    btn:     HTMLButtonElement;
+  }> = new Map();
+
+  private upgradeCb: ((trait: Trait) => void) | null = null;
+
+  constructor() {
+    this.buildUpgradePanel();
+  }
+
+  private buildUpgradePanel(): void {
+    const panel = document.getElementById('upgrade-panel')!;
+    for (const def of TRAIT_DEFS) {
+      const card = document.createElement('div');
+      card.className = 'upgrade-card';
+      card.innerHTML = `
+        <div class="upgrade-header">${def.icon} ${def.label}</div>
+        <div class="upgrade-level">Lv.<span class="upg-lv">0</span></div>
+        <div class="upgrade-bonus upg-bonus">공격력 +0%</div>
+        <button class="upgrade-btn">업그레이드<br><span class="upg-cost">100💰</span></button>
+      `;
+      panel.appendChild(card);
+
+      const btn = card.querySelector('.upgrade-btn') as HTMLButtonElement;
+      btn.addEventListener('click', () => this.upgradeCb?.(def.trait));
+
+      this.upgradeCards.set(def.trait, {
+        levelEl: card.querySelector('.upg-lv')!,
+        bonusEl: card.querySelector('.upg-bonus')!,
+        costEl:  card.querySelector('.upg-cost')!,
+        btn,
+      });
+    }
+  }
+
   onSpawnSoldier(cb: () => void): void {
     this.spawnBtn.addEventListener('click', cb);
+  }
+
+  onUpgrade(cb: (trait: Trait) => void): void {
+    this.upgradeCb = cb;
   }
 
   showSpawnNotification(charLabel: string, gradeLabel: string, gradeColor: number): void {
@@ -38,6 +82,16 @@ export class HUD {
     this.spawnBtn.disabled          = state.gold < 20 || state.gameOver || state.won;
     this.stageNumEl.textContent     = String(state.stage);
     this.stageTimerEl.textContent   = fmtTime(state.stageTimeRemaining);
+
+    for (const [trait, els] of this.upgradeCards) {
+      const level = state.upgrades[trait];
+      const cost  = upgradeCost(level);
+      const bonus = Math.round((damageMultiplier(level) - 1) * 100);
+      els.levelEl.textContent = String(level);
+      els.bonusEl.textContent = `공격력 +${bonus}%`;
+      els.costEl.textContent  = level >= UPGRADE_MAX_LEVEL ? 'MAX' : `${cost}💰`;
+      els.btn.disabled        = level >= UPGRADE_MAX_LEVEL || state.gold < cost || state.gameOver || state.won;
+    }
 
     if (state.gameOver) this.gameOverEl.classList.add('visible');
     if (state.won)      this.victoryEl.classList.add('visible');

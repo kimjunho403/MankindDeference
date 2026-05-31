@@ -1,7 +1,9 @@
 import type { MonsterType } from '../systems/StageDefs';
 import { STAGES } from '../systems/StageDefs';
 import type { Grade } from '../systems/GradeDefs';
+import type { Trait } from '../systems/UpgradeDefs';
 export type { Grade };
+export type { Trait };
 
 export type { MonsterType };
 export type SoldierType = 'archer' | 'ninja' | 'paladin';
@@ -20,6 +22,7 @@ export interface SoldierData {
   id: number;
   soldierType: SoldierType;
   grade: Grade;
+  trait: Trait;
   attackDamage: number;
   attackRange: number;
   attackCooldown: number;
@@ -51,6 +54,7 @@ export interface GameState {
   spawnTimers: Record<MonsterType, number>;
   spawnedCounts: Record<MonsterType, number>;
   pendingDamages: PendingDamage[];
+  upgrades: Record<Trait, number>;  // 특성별 업그레이드 레벨 (0~100)
   gameOver: boolean;
   won: boolean;
 }
@@ -68,6 +72,7 @@ export function createGameState(): GameState {
     spawnTimers:   { warrok: 0, jery: 0, mutent: 0 },
     spawnedCounts: { warrok: 0, jery: 0, mutent: 0 },
     pendingDamages: [],
+    upgrades: { ranged: 0, explosive: 0, melee: 0 },
     gameOver: false,
     won: false,
   };

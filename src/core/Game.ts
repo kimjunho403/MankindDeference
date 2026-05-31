@@ -8,6 +8,7 @@ import { EffectsRenderer } from '../effects/EffectsRenderer';
 import { loadAllMonsterTemplates } from '../character/MonsterRegistry';
 import { loadAllTemplates, randomSoldierType, getCharacterDef } from '../character/CharacterRegistry';
 import { rollGrade, getGradeDef } from './systems/GradeDefs';
+import { upgradeCost, UPGRADE_MAX_LEVEL, type Trait } from './systems/UpgradeDefs';
 import { createRenderer } from './RendererFactory';
 import { buildScene } from '../Map/MapBuilder';
 import { CameraController } from '../camera/CameraController';
@@ -67,6 +68,7 @@ export class Game {
 
     this.hud = new HUD();
     this.hud.onSpawnSoldier(() => this.trySpawnSoldier());
+    this.hud.onUpgrade((trait) => this.tryUpgrade(trait));
 
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'none';
@@ -117,6 +119,17 @@ export class Game {
     this.hud.update(this.state);
   }
 
+  // ── Upgrade ───────────────────────────────────────────────────────────────
+
+  private tryUpgrade(trait: Trait): void {
+    const currentLevel = this.state.upgrades[trait];
+    if (currentLevel >= UPGRADE_MAX_LEVEL) return;
+    const cost = upgradeCost(currentLevel);
+    if (this.state.gold < cost) return;
+    this.state.gold -= cost;
+    this.state.upgrades[trait]++;
+  }
+
   // ── Soldier spawn ─────────────────────────────────────────────────────────
 
   private trySpawnSoldier(): void {
@@ -134,6 +147,7 @@ export class Game {
       id: this.state.nextSoldierId++,
       soldierType,
       grade,
+      trait:          def.trait,
       weaponType:     def.weaponType,
       attackDamage:   def.stats.attackDamage  * m.attackDamage,
       attackRange:    def.stats.attackRange   * m.attackRange,
