@@ -56,7 +56,7 @@ export class Game {
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(w, h);
     });
-    this.cameraCtrl.updateCamera(this.camera);
+    this.cameraCtrl.updateCamera(this.camera, 0);
 
     this.input = new InputController();
     this.input.register(canvas, cmd.onSelectionRect, cmd.onClick, cmd.onDeselect);
@@ -94,7 +94,7 @@ export class Game {
   private loop = (time: number): void => {
     const delta = Math.min((time - this.lastTime) / 1000, 0.1);
     this.lastTime = time;
-    this.cameraCtrl.updateCamera(this.camera);
+    this.cameraCtrl.updateCamera(this.camera, delta);
     if (!this.state.gameOver && !this.state.won) this.update(delta);
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(this.loop);
