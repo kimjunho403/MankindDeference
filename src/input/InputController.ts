@@ -56,7 +56,7 @@ export class InputController {
     });
 
     window.addEventListener('mouseup', (e: MouseEvent) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || !isDragging) return;
       isDragging = false;
       box.style.display = 'none';
       if (selecting) {

@@ -1,5 +1,5 @@
 import type { GameState } from '../core/state/GameState';
-import { TRAIT_DEFS, upgradeCost, damageMultiplier, UPGRADE_MAX_LEVEL } from '../core/systems/UpgradeDefs';
+import { TRAIT_DEFS, upgradeCost, UPGRADE_MAX_LEVEL } from '../core/systems/UpgradeDefs';
 import type { Trait } from '../core/systems/UpgradeDefs';
 
 const MONSTER_LIMIT = 100;
@@ -22,7 +22,6 @@ export class HUD {
 
   private upgradeCards: Map<Trait, {
     levelEl: HTMLElement;
-    bonusEl: HTMLElement;
     costEl:  HTMLElement;
     btn:     HTMLButtonElement;
   }> = new Map();
@@ -35,13 +34,13 @@ export class HUD {
 
   private buildUpgradePanel(): void {
     const panel = document.getElementById('upgrade-panel')!;
+    panel.addEventListener('contextmenu', (e) => e.preventDefault());
     for (const def of TRAIT_DEFS) {
       const card = document.createElement('div');
       card.className = 'upgrade-card';
       card.innerHTML = `
         <div class="upgrade-header">${def.icon} ${def.label}</div>
         <div class="upgrade-level">Lv.<span class="upg-lv">0</span></div>
-        <div class="upgrade-bonus upg-bonus">공격력 +0%</div>
         <button class="upgrade-btn">업그레이드<br><span class="upg-cost">100💰</span></button>
       `;
       panel.appendChild(card);
@@ -51,7 +50,6 @@ export class HUD {
 
       this.upgradeCards.set(def.trait, {
         levelEl: card.querySelector('.upg-lv')!,
-        bonusEl: card.querySelector('.upg-bonus')!,
         costEl:  card.querySelector('.upg-cost')!,
         btn,
       });
@@ -86,9 +84,7 @@ export class HUD {
     for (const [trait, els] of this.upgradeCards) {
       const level = state.upgrades[trait];
       const cost  = upgradeCost(level);
-      const bonus = Math.round((damageMultiplier(level) - 1) * 100);
       els.levelEl.textContent = String(level);
-      els.bonusEl.textContent = `공격력 +${bonus}%`;
       els.costEl.textContent  = level >= UPGRADE_MAX_LEVEL ? 'MAX' : `${cost}💰`;
       els.btn.disabled        = level >= UPGRADE_MAX_LEVEL || state.gold < cost || state.gameOver || state.won;
     }

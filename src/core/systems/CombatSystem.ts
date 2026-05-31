@@ -1,6 +1,5 @@
 import type { GameState, WeaponType } from '../state/GameState';
 import { progressToPosition, distance2D } from './TrackSystem';
-import { damageMultiplier } from './UpgradeDefs';
 
 export interface AttackEvent {
   soldierId: number;
@@ -117,7 +116,7 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
         const mPos = progressToPosition(target.progress);
         soldier.attackCooldown = 1 / soldier.attackSpeed;
         const hitDelay = soldier.attackHitDelay;
-        const damage = soldier.attackDamage * damageMultiplier(state.upgrades[soldier.trait]);
+        const damage = soldier.attackDamage * (1 + state.upgrades[soldier.trait]);
 
         if (hitDelay > 0) {
           // 선딜레이 후 타격 구간에서 피해 적용

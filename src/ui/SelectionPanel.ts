@@ -1,6 +1,5 @@
 import type { SoldierData, SoldierType } from '../core/state/GameState';
 import type { Trait } from '../core/systems/UpgradeDefs';
-import { damageMultiplier } from '../core/systems/UpgradeDefs';
 import { getGradeDef } from '../core/systems/GradeDefs';
 import { getCharacterDef } from '../character/CharacterRegistry';
 import type { PortraitRenderer } from '../character/PortraitRenderer';
@@ -39,6 +38,8 @@ export class SelectionPanel {
     this.singleEl = document.getElementById('sel-single')!;
     this.multiEl  = document.getElementById('sel-multi')!;
     this.thumbsEl = document.getElementById('sel-thumbs')!;
+
+    this.el.addEventListener('contextmenu', (e) => e.preventDefault());
 
     this.sPortCtx = (document.getElementById('sel-portrait') as HTMLCanvasElement).getContext('2d')!;
     this.sNameEl  = document.getElementById('sel-name')!;
@@ -88,15 +89,17 @@ export class SelectionPanel {
   private writeProfile(s: SoldierData, upgrades: Record<Trait, number>): void {
     const def      = getCharacterDef(s.soldierType);
     const gradeDef = getGradeDef(s.grade);
-    const level    = upgrades[s.trait];
-    const bonus    = Math.round((damageMultiplier(level) - 1) * 100);
-    const totalAtk = Math.round(s.attackDamage * damageMultiplier(level));
-    const hex      = '#' + gradeDef.color.toString(16).padStart(6, '0');
+    const level        = upgrades[s.trait];
+    const base         = Math.round(s.attackDamage);
+    const upgradeBonus = base * level;
+    const hex          = '#' + gradeDef.color.toString(16).padStart(6, '0');
 
     this.sNameEl.textContent  = def.label;
     this.sGradeEl.textContent = gradeDef.label;
     this.sGradeEl.style.color = hex;
-    this.sAtkEl.innerHTML     = `${totalAtk} <small style="color:#88ff88">(+${bonus}%)</small>`;
+    this.sAtkEl.innerHTML     = upgradeBonus > 0
+      ? `${base} <small style="color:#88ff88">+${upgradeBonus}</small>`
+      : String(base);
     this.sSpdEl.textContent   = s.attackSpeed.toFixed(2);
     this.sRngEl.textContent   = s.attackRange.toFixed(1);
     this.sMvsEl.textContent   = s.moveSpeed.toFixed(1);
