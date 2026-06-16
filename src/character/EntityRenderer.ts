@@ -1,12 +1,13 @@
 import * as THREE from 'three';
-import type { MonsterData, SoldierData, SoldierType, MonsterType } from '../core/state/GameState';
+import type { MonsterData, SoldierData, MonsterType } from '../core/state/GameState';
 import { progressToPosition } from '../core/systems/TrackSystem';
 import { getGradeDef } from '../core/systems/GradeDefs';
-import type { AttackEvent } from '../core/systems/CombatSystem';
+import type { AttackStartEvent, ThrowEvent } from '../core/systems/CombatSystem';
 import type { MonsterTemplate } from './MonsterLoader';
 import { createMonsterInstance } from './MonsterLoader';
-import type { SoldierTemplate, SoldierInstance } from './SoldierTypes';
-import { createSoldierInstance, playAttack, playWalk, playIdle } from './SoldierTypes';
+import type { SoldierInstance } from './SoldierTypes';
+import { createSoldierInstance, playAttack, playWalk, playIdle, hideThrownWeapon, cancelAttack } from './SoldierTypes';
+import type { SoldierTemplateStore } from './CharacterRegistry';
 
 const ROTATE_SPEED = 8; // rad/s
 
@@ -45,7 +46,7 @@ export class EntityRenderer {
   constructor(
     private readonly scene: THREE.Scene,
     private readonly monsterTemplates: Map<MonsterType, MonsterTemplate>,
-    private readonly soldierTemplates: Map<SoldierType, SoldierTemplate>,
+    private readonly soldierTemplates: SoldierTemplateStore,
   ) {}
 
   // ── Monster ───────────────────────────────────────────────────────────────
@@ -123,14 +124,14 @@ export class EntityRenderer {
   // ── Soldier ───────────────────────────────────────────────────────────────
 
   addSoldier(soldier: SoldierData): void {
-    const template = this.soldierTemplates.get(soldier.soldierType);
+    const template = this.soldierTemplates.resolve(soldier.soldierType, soldier.grade);
     if (!template) {
       console.warn(`No template for soldierType: ${soldier.soldierType}`);
       return;
     }
 
     const group = new THREE.Group();
-    const instance = createSoldierInstance(template);
+    const instance = createSoldierInstance(template, soldier.attackSpeed);
     instance.model.traverse(obj => { if (obj instanceof THREE.Mesh) obj.castShadow = true; });
     group.add(instance.model);
 
@@ -191,8 +192,9 @@ export class EntityRenderer {
     }
   }
 
-  updateSoldiers(attacks: AttackEvent[], delta: number): void {
-    for (const attack of attacks) {
+  // 공격 모션 시작 (조준 + 애니)
+  updateSoldiers(attackStarts: AttackStartEvent[], delta: number): void {
+    for (const attack of attackStarts) {
       const data = this.soldiers.get(attack.soldierId);
       if (!data) continue;
 
@@ -201,6 +203,22 @@ export class EntityRenderer {
       data.targetAngle = Math.atan2(dx, dz);
       data.instance.model.rotation.y = lerpAngle(data.instance.model.rotation.y, data.targetAngle, ROTATE_SPEED, delta);
       playAttack(data.instance);
+    }
+  }
+
+  // 실제 발동(던지기)된 공격 — 손의 무기 숨김
+  applyThrows(throws: ThrowEvent[]): void {
+    for (const ev of throws) {
+      const data = this.soldiers.get(ev.soldierId);
+      if (data) hideThrownWeapon(data.instance);
+    }
+  }
+
+  // 발동 전 취소된 공격 — 공격 애니를 즉시 끊고 idle로
+  applyCancels(soldierIds: number[]): void {
+    for (const id of soldierIds) {
+      const data = this.soldiers.get(id);
+      if (data) cancelAttack(data.instance);
     }
   }
 

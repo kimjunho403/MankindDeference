@@ -1,17 +1,15 @@
 import * as THREE from 'three';
-import type { AttackEvent } from '../core/systems/CombatSystem';
+import type { ThrowEvent } from '../core/systems/CombatSystem';
+import type { ProjectileHit } from '../core/systems/ProjectileSystem';
+import type { ProjectileData } from '../core/state/GameState';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface Projectile {
-  mesh: THREE.Group;
-  from: THREE.Vector3;
-  to: THREE.Vector3;
-  progress: number;
-  duration: number;
-  arcHeight: number;
-  weaponType: string;
+interface ProjectileMesh {
+  group: THREE.Group;
+  last: THREE.Vector3;   // 직전 위치 (진행 방향 계산용)
   spinSpeed: number;
+  disposable: boolean;   // false면 공유 모델이라 geometry/material 해제 안 함
 }
 
 interface HitParticle {
@@ -31,18 +29,9 @@ interface MoveEffect {
 
 interface WeaponEffectHandler {
   createProjectile(): THREE.Group;
-  arcHeight(dist: number): number;
-  flightDuration(dist: number): number;
   spinSpeed: number;
-  instant?: boolean;    // true면 투사체 없이 hitDelay 후 onHit 호출
-  hitDelay?: number;    // instant 무기의 이펙트 딜레이 (초)
-  onHit?(pos: THREE.Vector3): void;
-}
-
-interface PendingHit {
-  timer: number;
-  pos: THREE.Vector3;
-  onHit(pos: THREE.Vector3): void;
+  disposable?: boolean; // false면 공유 모델 클론이라 해제 안 함 (기본 true)
+  instant?: boolean;    // true면 투사체 없음 (근접) — 즉시 타격 이펙트
 }
 
 // ── Projectile mesh factories ─────────────────────────────────────────────────
@@ -88,119 +77,124 @@ function createShurikenMesh(): THREE.Group {
   return group;
 }
 
+// 로드된 GLB 모델을 투사체로 던지는 팩토리 (돌/창 등). 모델 geometry는 공유(클론).
+// orientLong=true면 모델을 중앙 정렬하고 가장 긴 축을 비행 방향(+Z)에 맞춤 (창처럼 길쭉한 무기용).
+function modelProjectileFactory(
+  source: THREE.Object3D,
+  targetSize: number,
+  orientLong = false,
+): () => THREE.Group {
+  const box = new THREE.Box3().setFromObject(source);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const scale = targetSize / (Math.max(size.x, size.y, size.z) || 1);
+
+  return () => {
+    const group = new THREE.Group();
+    const mesh = source.clone(true);
+    mesh.scale.setScalar(scale);
+
+    if (orientLong) {
+      // 모델을 자기 중심으로 이동(inner 원점에 정렬) 후 가장 긴 축을 +Z로 회전
+      mesh.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+      const inner = new THREE.Group();
+      inner.add(mesh);
+      if (size.y >= size.x && size.y >= size.z)      inner.rotation.x = -Math.PI / 2; // Y축이 길면 Y→Z
+      else if (size.x >= size.y && size.x >= size.z) inner.rotation.y = -Math.PI / 2; // X축이 길면 X→Z
+      group.add(inner);
+    } else {
+      group.add(mesh);
+    }
+    return group;
+  };
+}
+
 // ── EffectsRenderer ───────────────────────────────────────────────────────────
 
 export class EffectsRenderer {
-  private projectiles: Projectile[] = [];
+  private projectileMeshes = new Map<number, ProjectileMesh>();
   private hitParticles: HitParticle[] = [];
   private moveEffects: MoveEffect[] = [];
-  private pendingHits: PendingHit[] = [];
   private readonly weaponHandlers = new Map<string, WeaponEffectHandler>();
 
-  constructor(private readonly scene: THREE.Scene) {
-    this.weaponHandlers.set('arrow', {
-      createProjectile: createArrowMesh,
-      arcHeight: (dist) => Math.max(0.8, dist * 0.2),
-      flightDuration: (dist) => 0.1 + dist * 0.01,
-      spinSpeed: 0,
-      onHit: (pos) => this.spawnBloodSplash(pos),
-    });
+  // projectileModels: weaponType별 던질 GLB 모델 (예: { rock: 돌.glb scene })
+  constructor(
+    private readonly scene: THREE.Scene,
+    projectileModels: Record<string, THREE.Object3D> = {},
+  ) {
+    this.weaponHandlers.set('arrow',    { createProjectile: createArrowMesh,    spinSpeed: 0 });
+    this.weaponHandlers.set('shuriken', { createProjectile: createShurikenMesh, spinSpeed: 18 });
+    this.weaponHandlers.set('melee',    { createProjectile: () => new THREE.Group(), spinSpeed: 0, instant: true });
 
-    this.weaponHandlers.set('shuriken', {
-      createProjectile: createShurikenMesh,
-      arcHeight: (dist) => Math.max(0.3, dist * 0.08),
-      flightDuration: (dist) => 0.08 + dist * 0.008,
-      spinSpeed: 18,
-      onHit: (pos) => this.spawnBloodSplash(pos),
-    });
-
-    this.weaponHandlers.set('melee', {
-      createProjectile: () => new THREE.Group(),
-      arcHeight: () => 0,
-      flightDuration: () => 0,
-      spinSpeed: 0,
-      instant: true,
-      hitDelay: 0,  // 실제 딜레이는 AttackEvent.hitDelay에서 읽음
-    });
-  }
-
-  // ── 투사체 ────────────────────────────────────────────────────────────────
-
-  showAttacks(events: AttackEvent[]): void {
-    for (const ev of events) {
-      const handler = this.weaponHandlers.get(ev.weaponType) ?? this.weaponHandlers.get('arrow')!;
-      const from = new THREE.Vector3(ev.soldierPos.x, 1.2, ev.soldierPos.z);
-      const to   = new THREE.Vector3(ev.monsterPos.x, 0.8, ev.monsterPos.z);
-
-      if (handler.instant) {
-        // hitDelay는 CombatSystem과 같은 값(AttackEvent)으로 동기화
-        const delay = ev.hitDelay;
-        if (delay > 0) {
-          if (handler.onHit) this.pendingHits.push({ timer: delay, pos: to.clone(), onHit: handler.onHit.bind(handler) });
-        } else {
-          handler.onHit?.(to);
-        }
-        continue;
-      }
-
-      const dist = from.distanceTo(to);
-
-      const mesh = handler.createProjectile();
-      mesh.position.copy(from);
-      this.scene.add(mesh);
-
-      this.projectiles.push({
-        mesh, from, to, progress: 0,
-        duration: handler.flightDuration(dist),
-        arcHeight: handler.arcHeight(dist),
-        weaponType: ev.weaponType,
-        spinSpeed: handler.spinSpeed,
+    // 돌 던지기 (원거리 원시인) — 회전 텀블링
+    if (projectileModels.rock) {
+      this.weaponHandlers.set('rock', {
+        createProjectile: modelProjectileFactory(projectileModels.rock, 0.18),
+        spinSpeed: 12, disposable: false,
+      });
+    }
+    // 창 던지기 (폭발형 원시인) — 길쭉하니 비행 방향으로 정렬, 회전 없음
+    if (projectileModels.spear) {
+      this.weaponHandlers.set('spear', {
+        createProjectile: modelProjectileFactory(projectileModels.spear, 1.0, true),
+        spinSpeed: 0, disposable: false,
       });
     }
   }
 
-  tickProjectiles(delta: number): void {
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const p = this.projectiles[i];
-      p.progress += delta / p.duration;
+  // ── 투사체 ────────────────────────────────────────────────────────────────
 
-      if (p.progress >= 1) {
-        this.scene.remove(p.mesh);
-        p.mesh.traverse((obj: THREE.Object3D) => {
+  // 근접(instant) 공격의 타격 이펙트. 원거리 투사체는 state 기반으로 syncProjectiles가 렌더.
+  showThrows(throws: ThrowEvent[]): void {
+    for (const ev of throws) {
+      if (this.weaponHandlers.get(ev.weaponType)?.instant) {
+        this.spawnBloodSplash(new THREE.Vector3(ev.targetPos.x, 0.8, ev.targetPos.z));
+      }
+    }
+  }
+
+  // 투사체 명중 이펙트 (ProjectileSystem이 명중 판정 → 위치 전달)
+  showHits(hits: ProjectileHit[]): void {
+    for (const h of hits) this.spawnBloodSplash(new THREE.Vector3(h.x, h.y, h.z));
+  }
+
+  // 게임 상태의 투사체 목록과 메쉬를 동기화 (생성/이동/제거)
+  syncProjectiles(projectiles: ProjectileData[], delta: number): void {
+    const alive = new Set<number>();
+
+    for (const p of projectiles) {
+      alive.add(p.id);
+      let pm = this.projectileMeshes.get(p.id);
+      if (!pm) {
+        const handler = this.weaponHandlers.get(p.weaponType) ?? this.weaponHandlers.get('arrow')!;
+        const group = handler.createProjectile();
+        group.position.set(p.x, p.y, p.z);
+        this.scene.add(group);
+        pm = { group, last: new THREE.Vector3(p.x, p.y, p.z), spinSpeed: handler.spinSpeed, disposable: handler.disposable ?? true };
+        this.projectileMeshes.set(p.id, pm);
+        continue;
+      }
+      const pos = new THREE.Vector3(p.x, p.y, p.z);
+      const dir = pos.clone().sub(pm.last);
+      if (dir.lengthSq() > 1e-8) pm.group.lookAt(pos.clone().add(dir)); // 진행 방향으로 정렬
+      pm.group.position.copy(pos);
+      if (pm.spinSpeed > 0) pm.group.rotateZ(pm.spinSpeed * delta);
+      pm.last.copy(pos);
+    }
+
+    // state에서 사라진 투사체의 메쉬 제거
+    for (const [id, pm] of this.projectileMeshes) {
+      if (alive.has(id)) continue;
+      this.scene.remove(pm.group);
+      if (pm.disposable) {
+        pm.group.traverse((obj: THREE.Object3D) => {
           if (obj instanceof THREE.Mesh) {
             obj.geometry.dispose();
             (obj.material as THREE.Material).dispose();
           }
         });
-        this.projectiles.splice(i, 1);
-        this.weaponHandlers.get(p.weaponType)?.onHit?.(p.to);
-        continue;
       }
-
-      const t = p.progress;
-      const pos = new THREE.Vector3().lerpVectors(p.from, p.to, t);
-      pos.y += 4 * p.arcHeight * t * (1 - t);
-
-      const tAhead = Math.min(t + 0.05, 0.99);
-      const ahead = new THREE.Vector3().lerpVectors(p.from, p.to, tAhead);
-      ahead.y += 4 * p.arcHeight * tAhead * (1 - tAhead);
-
-      p.mesh.position.copy(pos);
-      if (ahead.distanceTo(pos) > 1e-4) p.mesh.lookAt(ahead);
-      if (p.spinSpeed > 0) p.mesh.rotateZ(p.spinSpeed * delta);
-    }
-  }
-
-  // ── 근거리 히트 딜레이 큐 ─────────────────────────────────────────────────
-
-  tickPendingHits(delta: number): void {
-    for (let i = this.pendingHits.length - 1; i >= 0; i--) {
-      const h = this.pendingHits[i];
-      h.timer -= delta;
-      if (h.timer <= 0) {
-        h.onHit(h.pos);
-        this.pendingHits.splice(i, 1);
-      }
+      this.projectileMeshes.delete(id);
     }
   }
 

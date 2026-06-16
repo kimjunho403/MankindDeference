@@ -1,17 +1,28 @@
 import type { GameState, WeaponType } from '../state/GameState';
 import { progressToPosition, distance2D } from './TrackSystem';
+import { spawnProjectile } from './ProjectileSystem';
 
-export interface AttackEvent {
+// 공격 모션 시작 (애니메이션/조준용). 실제 발동은 ThrowEvent에서.
+export interface AttackStartEvent {
   soldierId: number;
   soldierPos: { x: number; z: number };
   monsterPos: { x: number; z: number };
   weaponType: WeaponType;
-  hitDelay: number;  // 데미지 판정까지의 딜레이 (초). 0이면 즉시
+}
+
+// 실제 발동(던지기/타격) — 사정거리 확인을 통과한 경우에만 발생. 투사체/무기 숨김/피해.
+export interface ThrowEvent {
+  soldierId: number;
+  soldierPos: { x: number; z: number };
+  targetPos: { x: number; z: number };  // 발동 시점의 타겟 위치 (계속 추적됨)
+  weaponType: WeaponType;
 }
 
 export interface CombatResult {
   deadIds: number[];
-  attacks: AttackEvent[];
+  attackStarts: AttackStartEvent[];
+  throws: ThrowEvent[];
+  cancels: number[];  // 발동 직전 사정거리 이탈로 취소된 soldierId (애니 중단용)
 }
 
 export function updateMonsterMovement(state: GameState, delta: number): void {
@@ -63,21 +74,46 @@ export function updateSoldierMovement(state: GameState, delta: number): void {
 }
 
 export function updateCombat(state: GameState, delta: number): CombatResult {
-  const attacks: AttackEvent[] = [];
+  const attackStarts: AttackStartEvent[] = [];
+  const throws: ThrowEvent[] = [];
   const deadIds: number[] = [];
+  const cancels: number[] = [];
 
-  // ── 1. 비행 중인 데미지 타이머 처리 (근접 타격 구간 진입 시 실제 피해 적용) ──
-  for (let i = state.pendingDamages.length - 1; i >= 0; i--) {
-    const pd = state.pendingDamages[i];
-    pd.timer -= delta;
-    if (pd.timer > 0) continue;
-    state.pendingDamages.splice(i, 1);
-    const target = state.monsters.find(m => m.id === pd.monsterId);
-    if (!target || target.hp <= 0) continue;
-    target.hp -= pd.damage;
-    if (target.hp <= 0) {
-      deadIds.push(target.id);
-      state.gold += 10;
+  // 발동 처리: 사정거리 안에 타겟이 남아있으면 피해+ThrowEvent(true), 벗어났으면 취소(false)
+  const resolveThrow = (
+    soldierId: number, targetId: number, damage: number, weaponType: WeaponType, attackRange: number,
+  ): boolean => {
+    const soldier = state.soldiers.find(s => s.id === soldierId);
+    if (!soldier) return false;
+    const target = state.monsters.find(m => m.id === targetId);
+    if (!target || target.hp <= 0) return false;                       // 타겟 사망 → 취소
+    const mPos = progressToPosition(target.progress);
+    if (distance2D(soldier.position, mPos) > attackRange) return false; // 사정거리 이탈 → 취소
+
+    if (weaponType === 'melee') {
+      // 근접: 즉시 피해
+      target.hp -= damage;
+      if (target.hp <= 0) {
+        deadIds.push(target.id);
+        state.gold += 10;
+        if (soldier.targetId === target.id) soldier.targetId = null;
+      }
+    } else {
+      // 원거리: 유도 투사체 생성 (피해는 명중 시 ProjectileSystem에서)
+      spawnProjectile(state, { x: soldier.position.x, y: 1.2, z: soldier.position.z }, target.id, damage, weaponType);
+    }
+    throws.push({ soldierId, soldierPos: soldier.position, targetPos: mPos, weaponType });
+    return true;
+  };
+
+  // ── 1. 선딜레이(windup) 진행 → 만료 시 발동/취소 ──
+  for (let i = state.pendingAttacks.length - 1; i >= 0; i--) {
+    const pa = state.pendingAttacks[i];
+    pa.timer -= delta;
+    if (pa.timer > 0) continue;
+    state.pendingAttacks.splice(i, 1);
+    if (!resolveThrow(pa.soldierId, pa.targetId, pa.damage, pa.weaponType, pa.attackRange)) {
+      cancels.push(pa.soldierId);  // 발동 실패 → 애니 중단
     }
   }
 
@@ -115,27 +151,24 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
       if (target) {
         const mPos = progressToPosition(target.progress);
         soldier.attackCooldown = 1 / soldier.attackSpeed;
-        const hitDelay = soldier.attackHitDelay;
         const damage = soldier.attackDamage * (1 + state.upgrades[soldier.trait]);
 
-        if (hitDelay > 0) {
-          // 선딜레이 후 타격 구간에서 피해 적용
-          state.pendingDamages.push({ timer: hitDelay, monsterId: target.id, damage });
-        } else {
-          target.hp -= damage;
-          if (target.hp <= 0) {
-            deadIds.push(target.id);
-            state.gold += 10;
-            soldier.targetId = null;
-          }
-        }
+        // 공격 모션 시작 (애니/조준). 실제 발동은 hitDelay 후 사정거리 재확인.
+        attackStarts.push({ soldierId: soldier.id, soldierPos: soldier.position, monsterPos: mPos, weaponType: soldier.weaponType });
 
-        attacks.push({ soldierId: soldier.id, soldierPos: soldier.position, monsterPos: mPos, weaponType: soldier.weaponType, hitDelay });
+        if (soldier.attackHitDelay > 0) {
+          state.pendingAttacks.push({
+            soldierId: soldier.id, targetId: target.id, timer: soldier.attackHitDelay,
+            damage, weaponType: soldier.weaponType, attackRange: soldier.attackRange,
+          });
+        } else {
+          resolveThrow(soldier.id, target.id, damage, soldier.weaponType, soldier.attackRange);
+        }
       }
     }
   }
 
   if (deadIds.length > 0) state.monsters = state.monsters.filter(m => !deadIds.includes(m.id));
 
-  return { deadIds, attacks };
+  return { deadIds, attackStarts, throws, cancels };
 }

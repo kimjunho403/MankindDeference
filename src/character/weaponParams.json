@@ -1,0 +1,41 @@
+{
+  "axe": {
+    "offset": [
+      0.12,
+      0.165,
+      0.005
+    ],
+    "rotationDeg": [
+      -145,
+      62,
+      -37
+    ],
+    "targetLength": 0.49
+  },
+  "rock": {
+    "offset": [
+      0.015,
+      0.175,
+      0.05
+    ],
+    "rotationDeg": [
+      -11,
+      -78,
+      -94
+    ],
+    "targetLength": 0.12
+  },
+  "spear": {
+    "offset": [
+      0.21,
+      0.215,
+      -0.015
+    ],
+    "rotationDeg": [
+      110,
+      2,
+      -104
+    ],
+    "targetLength": 1.2
+  }
+}

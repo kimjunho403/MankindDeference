@@ -1,6 +1,6 @@
 import type { SoldierData, SoldierType } from '../core/state/GameState';
 import type { Trait } from '../core/systems/UpgradeDefs';
-import { getGradeDef } from '../core/systems/GradeDefs';
+import { getGradeDef, getGradeLabel } from '../core/systems/GradeDefs';
 import { getCharacterDef } from '../character/CharacterRegistry';
 import type { PortraitRenderer } from '../character/PortraitRenderer';
 
@@ -95,7 +95,7 @@ export class SelectionPanel {
     const hex          = '#' + gradeDef.color.toString(16).padStart(6, '0');
 
     this.sNameEl.textContent  = def.label;
-    this.sGradeEl.textContent = gradeDef.label;
+    this.sGradeEl.textContent = getGradeLabel(s.grade, s.trait);
     this.sGradeEl.style.color = hex;
     this.sAtkEl.innerHTML     = upgradeBonus > 0
       ? `${base} <small style="color:#88ff88">+${upgradeBonus}</small>`

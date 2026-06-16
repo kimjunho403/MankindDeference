@@ -3,11 +3,13 @@ import { createGameState, type GameState, type SoldierData } from './state/GameS
 import { randomSoldierPosition } from './systems/TrackSystem';
 import { updateSpawn } from './systems/SpawnSystem';
 import { updateMonsterMovement, updateCombat, updateSoldierMovement } from './systems/CombatSystem';
+import { updateProjectiles } from './systems/ProjectileSystem';
 import { EntityRenderer } from '../character/EntityRenderer';
 import { EffectsRenderer } from '../effects/EffectsRenderer';
 import { loadAllMonsterTemplates } from '../character/MonsterRegistry';
-import { loadAllTemplates, randomSoldierType, getCharacterDef } from '../character/CharacterRegistry';
-import { rollGrade, getGradeDef } from './systems/GradeDefs';
+import { loadAllTemplates, randomSoldierType, getCharacterDef, getAttackTiming, type SoldierTemplateStore } from '../character/CharacterRegistry';
+import { throwDelaySeconds } from '../character/SoldierTypes';
+import { rollGrade, getGradeDef, getGradeLabel } from './systems/GradeDefs';
 import { upgradeCost, UPGRADE_MAX_LEVEL, type Trait } from './systems/UpgradeDefs';
 import { createRenderer } from './RendererFactory';
 import { buildScene } from '../Map/MapBuilder';
@@ -33,6 +35,7 @@ export class Game {
   private hud!: HUD;
   private portraitRenderer!: PortraitRenderer;
   private selectionPanel!: SelectionPanel;
+  private soldierTemplates!: SoldierTemplateStore;
   private lastTime = 0;
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -65,8 +68,15 @@ export class Game {
       loadAllMonsterTemplates(),
       loadAllTemplates(),
     ]);
+    this.soldierTemplates = soldierTemplates;
     this.entityRenderer  = new EntityRenderer(this.scene, monsterTemplates, soldierTemplates);
-    this.effectsRenderer = new EffectsRenderer(this.scene);
+    // 투사체로 던질 모델 전달 (원거리=돌, 폭발=창)
+    const projectileModels: Record<string, THREE.Object3D> = {};
+    const rockModel  = soldierTemplates.resolve('archer', 'normal').weapon?.scene;
+    const spearModel = soldierTemplates.resolve('ninja',  'normal').weapon?.scene;
+    if (rockModel)  projectileModels.rock  = rockModel;
+    if (spearModel) projectileModels.spear = spearModel;
+    this.effectsRenderer = new EffectsRenderer(this.scene, projectileModels);
     cmd.onMoveIssued = (pt) => this.effectsRenderer.spawnMoveEffect(pt);
     cmd.registerDebugKeys(() => this.entityRenderer.toggleRangeRings());
 
@@ -74,7 +84,7 @@ export class Game {
     this.hud.onSpawnSoldier(() => this.trySpawnSoldier());
     this.hud.onUpgrade((trait) => this.tryUpgrade(trait));
 
-    this.portraitRenderer = new PortraitRenderer(soldierTemplates);
+    this.portraitRenderer = new PortraitRenderer(soldierTemplates.baseMap());
     this.selectionPanel   = new SelectionPanel(this.portraitRenderer);
     this.selectionPanel.onFocusSoldier((id) => {
       for (const s of this.state.soldiers) s.selected = s.id === id;
@@ -113,15 +123,19 @@ export class Game {
 
     if (this.state.monsters.length >= 100) this.state.gameOver = true;
 
-    const { deadIds, attacks } = updateCombat(this.state, delta);
-    for (const id of deadIds) this.entityRenderer.removeMonster(id);
+    const { deadIds, attackStarts, throws, cancels } = updateCombat(this.state, delta);
+    const proj = updateProjectiles(this.state, delta);
+    for (const id of deadIds)      this.entityRenderer.removeMonster(id);
+    for (const id of proj.deadIds) this.entityRenderer.removeMonster(id);
 
     this.entityRenderer.updateMonsters(this.state.monsters);
     this.entityRenderer.updateSoldierVisuals(this.state.soldiers, delta);
-    this.entityRenderer.updateSoldiers(attacks, delta);
-    this.effectsRenderer.showAttacks(attacks);
-    this.effectsRenderer.tickProjectiles(delta);
-    this.effectsRenderer.tickPendingHits(delta);
+    this.entityRenderer.updateSoldiers(attackStarts, delta);
+    this.entityRenderer.applyThrows(throws);
+    this.entityRenderer.applyCancels(cancels);
+    this.effectsRenderer.showThrows(throws);
+    this.effectsRenderer.syncProjectiles(this.state.projectiles, delta);
+    this.effectsRenderer.showHits(proj.hits);
     this.effectsRenderer.tickParticles(delta);
     this.effectsRenderer.tickMoveEffects(delta);
     this.entityRenderer.tickAnimations(delta);
@@ -155,6 +169,11 @@ export class Game {
     const m = gradeDef.multipliers;
     const pos = randomSoldierPosition();
 
+    // 발동 시점: 애니 비율(getAttackTiming) → 실제 초로 환산 (공격속도 반영, 프레임 고정)
+    const attackSpeed = def.stats.attackSpeed * m.attackSpeed;
+    const template = this.soldierTemplates.resolve(soldierType, grade);
+    const attackHitDelay = throwDelaySeconds(template, attackSpeed, getAttackTiming(soldierType));
+
     const soldier: SoldierData = {
       id: this.state.nextSoldierId++,
       soldierType,
@@ -164,8 +183,8 @@ export class Game {
       attackDamage:   def.stats.attackDamage  * m.attackDamage,
       attackRange:    def.stats.attackRange   * m.attackRange,
       attackCooldown: 0,
-      attackSpeed:    def.stats.attackSpeed   * m.attackSpeed,
-      attackHitDelay: def.attackHitDelay ?? 0,
+      attackSpeed,
+      attackHitDelay,
       position:       pos,
       moveTarget:     null,
       moveSpeed:      def.stats.moveSpeed     * m.moveSpeed,
@@ -174,6 +193,6 @@ export class Game {
     };
     this.state.soldiers.push(soldier);
     this.entityRenderer.addSoldier(soldier);
-    this.hud.showSpawnNotification(def.label, gradeDef.label, gradeDef.color);
+    this.hud.showSpawnNotification(def.label, getGradeLabel(grade, def.trait), gradeDef.color);
   }
 }

@@ -7,7 +7,7 @@ export type { Trait };
 
 export type { MonsterType };
 export type SoldierType = 'archer' | 'ninja' | 'paladin';
-export type WeaponType  = 'arrow' | 'shuriken' | 'melee';
+export type WeaponType  = 'arrow' | 'shuriken' | 'melee' | 'rock' | 'spear';
 
 export interface MonsterData {
   id: number;
@@ -36,10 +36,24 @@ export interface SoldierData {
   weaponType: WeaponType;
 }
 
-export interface PendingDamage {
-  timer: number;
-  monsterId: number;
+// 선딜레이(windup) 중인 공격. timer 만료 시 사정거리 재확인 후 발동/취소.
+export interface PendingAttack {
+  soldierId: number;
+  targetId: number;
+  timer: number;        // 던지기/타격까지 남은 시간 (초)
   damage: number;
+  weaponType: WeaponType;
+  attackRange: number;
+}
+
+// 비행 중인 유도 투사체. 타겟을 추적하다 명중 시 피해 적용.
+export interface ProjectileData {
+  id: number;
+  weaponType: WeaponType;
+  damage: number;
+  targetId: number;     // 추적 대상 몬스터
+  x: number; y: number; z: number;  // 현재 위치
+  speed: number;        // 비행 속도 (units/sec)
 }
 
 export interface GameState {
@@ -53,7 +67,9 @@ export interface GameState {
   stageTimeRemaining: number;
   spawnTimers: Record<MonsterType, number>;
   spawnedCounts: Record<MonsterType, number>;
-  pendingDamages: PendingDamage[];
+  pendingAttacks: PendingAttack[];
+  projectiles: ProjectileData[];
+  nextProjectileId: number;
   upgrades: Record<Trait, number>;  // 특성별 업그레이드 레벨 (0~100)
   gameOver: boolean;
   won: boolean;
@@ -71,7 +87,9 @@ export function createGameState(): GameState {
     stageTimeRemaining: STAGES[0].duration,
     spawnTimers:   { warrok: 0, jery: 0, mutent: 0 },
     spawnedCounts: { warrok: 0, jery: 0, mutent: 0 },
-    pendingDamages: [],
+    pendingAttacks: [],
+    projectiles: [],
+    nextProjectileId: 1,
     upgrades: { ranged: 0, explosive: 0, melee: 0 },
     gameOver: false,
     won: false,
