@@ -1,4 +1,4 @@
-import type { Trait } from './UpgradeDefs';
+import type { SoldierType } from '../state/GameState';
 
 // 내부 등급 키는 유지(가중치/배율 로직 보존). 표기만 시대/신으로 노출한다.
 export type Grade =
@@ -36,9 +36,9 @@ export const GRADE_DEFS: GradeDef[] = [
   { grade: 'eternal',      label: '영원',   isGod: true,  color: 0xffd700, weight: 0.2,  multipliers: { attackDamage: 10.0, attackRange: 2.5,  attackSpeed: 2.5,  moveSpeed: 2.0  } },
 ];
 
-// trait별 신 이름 (mythic / transcendent / eternal)
+// 유닛 타입별 신 이름 (mythic / transcendent / eternal)
 // 근접=전쟁신 · 원거리=사냥/궁술신 · 폭발=천둥/불의 신
-export const GOD_NAMES: Record<Trait, Record<GodTier, string>> = {
+export const GOD_NAMES: Record<SoldierType, Record<GodTier, string>> = {
   melee:     { mythic: '아레스',       transcendent: '아테나', eternal: '오딘' },
   ranged:    { mythic: '아르테미스',   transcendent: '아폴론', eternal: '후예' },
   explosive: { mythic: '헤파이스토스', transcendent: '라이진', eternal: '제우스' },
@@ -59,8 +59,8 @@ export function getGradeDef(grade: Grade): GradeDef {
   return GRADE_DEFS.find(d => d.grade === grade)!;
 }
 
-// 화면 표기용 라벨: 시대 등급은 시대명, 신 등급은 trait별 신 이름
-export function getGradeLabel(grade: Grade, trait: Trait): string {
+// 화면 표기용 라벨: 시대 등급은 시대명, 신 등급은 유닛 타입별 신 이름
+export function getGradeLabel(grade: Grade, type: SoldierType): string {
   const def = getGradeDef(grade);
-  return def.isGod ? GOD_NAMES[trait][grade as GodTier] : def.label;
+  return def.isGod ? GOD_NAMES[type][grade as GodTier] : def.label;
 }

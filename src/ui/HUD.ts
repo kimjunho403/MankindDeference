@@ -1,6 +1,5 @@
-import type { GameState } from '../core/state/GameState';
+import type { GameState, SoldierType } from '../core/state/GameState';
 import { TRAIT_DEFS, upgradeCost, UPGRADE_MAX_LEVEL } from '../core/systems/UpgradeDefs';
-import type { Trait } from '../core/systems/UpgradeDefs';
 
 const MONSTER_LIMIT = 100;
 
@@ -20,13 +19,13 @@ export class HUD {
   private victoryEl      = document.getElementById('victory')!;
   private notifContainer = document.getElementById('spawn-notifications')!;
 
-  private upgradeCards: Map<Trait, {
+  private upgradeCards: Map<SoldierType, {
     levelEl: HTMLElement;
     costEl:  HTMLElement;
     btn:     HTMLButtonElement;
   }> = new Map();
 
-  private upgradeCb: ((trait: Trait) => void) | null = null;
+  private upgradeCb: ((type: SoldierType) => void) | null = null;
 
   constructor() {
     this.buildUpgradePanel();
@@ -46,9 +45,9 @@ export class HUD {
       panel.appendChild(card);
 
       const btn = card.querySelector('.upgrade-btn') as HTMLButtonElement;
-      btn.addEventListener('click', () => this.upgradeCb?.(def.trait));
+      btn.addEventListener('click', () => this.upgradeCb?.(def.soldierType));
 
-      this.upgradeCards.set(def.trait, {
+      this.upgradeCards.set(def.soldierType, {
         levelEl: card.querySelector('.upg-lv')!,
         costEl:  card.querySelector('.upg-cost')!,
         btn,
@@ -60,7 +59,7 @@ export class HUD {
     this.spawnBtn.addEventListener('click', cb);
   }
 
-  onUpgrade(cb: (trait: Trait) => void): void {
+  onUpgrade(cb: (type: SoldierType) => void): void {
     this.upgradeCb = cb;
   }
 
@@ -81,8 +80,8 @@ export class HUD {
     this.stageNumEl.textContent     = String(state.stage);
     this.stageTimerEl.textContent   = fmtTime(state.stageTimeRemaining);
 
-    for (const [trait, els] of this.upgradeCards) {
-      const level = state.upgrades[trait];
+    for (const [soldierType, els] of this.upgradeCards) {
+      const level = state.upgrades[soldierType];
       const cost  = upgradeCost(level);
       els.levelEl.textContent = String(level);
       els.costEl.textContent  = level >= UPGRADE_MAX_LEVEL ? 'MAX' : `${cost}💰`;

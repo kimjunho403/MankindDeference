@@ -1,15 +1,16 @@
-export type Trait = 'ranged' | 'explosive' | 'melee';
+import type { SoldierType } from '../state/GameState';
 
+// 업그레이드 패널 표시용: 유닛 타입(=특성)별 라벨/아이콘
 export interface TraitDef {
-  trait: Trait;
+  soldierType: SoldierType;
   label: string;
   icon: string;
 }
 
 export const TRAIT_DEFS: TraitDef[] = [
-  { trait: 'ranged',    label: '원거리', icon: '🏹' },
-  { trait: 'explosive', label: '폭발',   icon: '💣' },
-  { trait: 'melee',     label: '근접',   icon: '⚔️' },
+  { soldierType: 'ranged',    label: '원거리', icon: '🏹' },
+  { soldierType: 'explosive', label: '폭발',   icon: '💣' },
+  { soldierType: 'melee',     label: '근접',   icon: '⚔️' },
 ];
 
 export const UPGRADE_MAX_LEVEL = 100;

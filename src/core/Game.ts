@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createGameState, type GameState, type SoldierData } from './state/GameState';
+import { createGameState, type GameState, type SoldierData, type SoldierType } from './state/GameState';
 import { randomSoldierPosition } from './systems/TrackSystem';
 import { updateSpawn } from './systems/SpawnSystem';
 import { updateMonsterMovement, updateCombat, updateSoldierMovement } from './systems/CombatSystem';
@@ -10,7 +10,7 @@ import { loadAllMonsterTemplates } from '../character/MonsterRegistry';
 import { loadAllTemplates, randomSoldierType, getCharacterDef, getAttackTiming, type SoldierTemplateStore } from '../character/CharacterRegistry';
 import { throwDelaySeconds } from '../character/SoldierTypes';
 import { rollGrade, getGradeDef, getGradeLabel } from './systems/GradeDefs';
-import { upgradeCost, UPGRADE_MAX_LEVEL, type Trait } from './systems/UpgradeDefs';
+import { upgradeCost, UPGRADE_MAX_LEVEL } from './systems/UpgradeDefs';
 import { createRenderer } from './RendererFactory';
 import { buildScene } from '../Map/MapBuilder';
 import { CameraController } from '../camera/CameraController';
@@ -72,8 +72,8 @@ export class Game {
     this.entityRenderer  = new EntityRenderer(this.scene, monsterTemplates, soldierTemplates);
     // 투사체로 던질 모델 전달 (원거리=돌, 폭발=창)
     const projectileModels: Record<string, THREE.Object3D> = {};
-    const rockModel  = soldierTemplates.resolve('archer', 'normal').weapon?.scene;
-    const spearModel = soldierTemplates.resolve('ninja',  'normal').weapon?.scene;
+    const rockModel  = soldierTemplates.resolve('ranged',    'normal').weapon?.scene;
+    const spearModel = soldierTemplates.resolve('explosive', 'normal').weapon?.scene;
     if (rockModel)  projectileModels.rock  = rockModel;
     if (spearModel) projectileModels.spear = spearModel;
     this.effectsRenderer = new EffectsRenderer(this.scene, projectileModels);
@@ -82,7 +82,7 @@ export class Game {
 
     this.hud = new HUD();
     this.hud.onSpawnSoldier(() => this.trySpawnSoldier());
-    this.hud.onUpgrade((trait) => this.tryUpgrade(trait));
+    this.hud.onUpgrade((type) => this.tryUpgrade(type));
 
     this.portraitRenderer = new PortraitRenderer(soldierTemplates.baseMap());
     this.selectionPanel   = new SelectionPanel(this.portraitRenderer);
@@ -147,13 +147,13 @@ export class Game {
 
   // ── Upgrade ───────────────────────────────────────────────────────────────
 
-  private tryUpgrade(trait: Trait): void {
-    const currentLevel = this.state.upgrades[trait];
+  private tryUpgrade(type: SoldierType): void {
+    const currentLevel = this.state.upgrades[type];
     if (currentLevel >= UPGRADE_MAX_LEVEL) return;
     const cost = upgradeCost(currentLevel);
     if (this.state.gold < cost) return;
     this.state.gold -= cost;
-    this.state.upgrades[trait]++;
+    this.state.upgrades[type]++;
   }
 
   // ── Soldier spawn ─────────────────────────────────────────────────────────
@@ -178,7 +178,6 @@ export class Game {
       id: this.state.nextSoldierId++,
       soldierType,
       grade,
-      trait:          def.trait,
       weaponType:     def.weaponType,
       attackDamage:   def.stats.attackDamage  * m.attackDamage,
       attackRange:    def.stats.attackRange   * m.attackRange,
@@ -193,6 +192,6 @@ export class Game {
     };
     this.state.soldiers.push(soldier);
     this.entityRenderer.addSoldier(soldier);
-    this.hud.showSpawnNotification(def.label, getGradeLabel(grade, def.trait), gradeDef.color);
+    this.hud.showSpawnNotification(def.label, getGradeLabel(grade, soldierType), gradeDef.color);
   }
 }

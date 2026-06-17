@@ -33,21 +33,21 @@ export interface SoldierAssetUrls {
 // 구석기(normal) 시대 모델을 trait별 base로 사용. 각 모델은 자체 Mixamo 리그라
 // 자기 폴더의 애니메이션을 사용한다. (중세 등 추가 시 GRADE_MODEL_DEFS에 등록)
 export const BASE_ASSETS: Record<SoldierType, SoldierAssetUrls> = {
-  archer: {
+  ranged: {
     model:  '/구석기원거리/구석기원거리.glb',
     idle:   '/구석기원거리/구석기원거리Idle.glb',
     attack: '/구석기원거리/구석기원거리Attck.glb',
     walk:   '/구석기원거리/구석기원거리Walk.glb',
     weapon: { url: '/구석기원거리/돌.glb', key: 'rock', bone: 'RightHand', throwable: true },
   },
-  ninja: {
+  explosive: {
     model:  '/구석기폭발형/구석기폭발형.glb',
     idle:   '/구석기폭발형/구석기폭발형Idle.glb',
     attack: '/구석기폭발형/구석기폭발형Attck.glb',
     walk:   '/구석기폭발형/구석기폭발형Walk.glb',
     weapon: { url: '/구석기폭발형/창.glb', key: 'spear', bone: 'RightHand', throwable: true },
   },
-  paladin: {
+  melee: {
     model:  '/구석기근접형/구석기근접형.glb',
     idle:   '/구석기근접형/구석기근접형Idle.glb',
     attack: '/구석기근접형/구석기근접형Attck.glb',
@@ -115,7 +115,7 @@ async function loadWeapon(cfg: WeaponConfig): Promise<WeaponMount> {
 }
 
 // 등급 모델 로더 팩토리: 모델 GLB만 교체하고 애니메이션은 trait base 클립을 재사용.
-// 사용 예) GRADE_MODEL_DEFS.archer.eternal = gradeModel('archer', '/units/archer/eternal.glb')
+// 사용 예) GRADE_MODEL_DEFS.ranged.eternal = gradeModel('ranged', '/units/ranged/eternal.glb')
 export function gradeModel(
   type: SoldierType,
   modelUrl: string,

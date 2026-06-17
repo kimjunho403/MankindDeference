@@ -45,7 +45,7 @@ async function main(): Promise<void> {
   });
 
   let current: SoldierInstance | null = null;
-  let currentType: SoldierType = 'archer';
+  let currentType: SoldierType = 'ranged';
 
   // 애니 재생 (blunt: 스크럽 상태와 충돌 안 나게 직접 제어)
   const playClip = (action: THREE.AnimationAction): void => {

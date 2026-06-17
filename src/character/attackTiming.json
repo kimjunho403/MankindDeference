@@ -1,5 +1,5 @@
 {
-  "archer": 0.37,
-  "ninja": 0.18,
-  "paladin": 0.5
+  "ranged": 0.37,
+  "explosive": 0.18,
+  "melee": 0.5
 }

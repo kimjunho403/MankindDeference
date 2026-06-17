@@ -1,12 +1,10 @@
 import type { MonsterType } from '../systems/StageDefs';
 import { STAGES } from '../systems/StageDefs';
 import type { Grade } from '../systems/GradeDefs';
-import type { Trait } from '../systems/UpgradeDefs';
 export type { Grade };
-export type { Trait };
 
 export type { MonsterType };
-export type SoldierType = 'archer' | 'ninja' | 'paladin';
+export type SoldierType = 'ranged' | 'explosive' | 'melee';
 export type WeaponType  = 'arrow' | 'shuriken' | 'melee' | 'rock' | 'spear';
 
 export interface MonsterData {
@@ -20,9 +18,8 @@ export interface MonsterData {
 
 export interface SoldierData {
   id: number;
-  soldierType: SoldierType;
+  soldierType: SoldierType;  // 유닛 타입 = 특성(업그레이드 분류). ranged/explosive/melee
   grade: Grade;
-  trait: Trait;
   attackDamage: number;
   attackRange: number;
   attackCooldown: number;
@@ -70,7 +67,7 @@ export interface GameState {
   pendingAttacks: PendingAttack[];
   projectiles: ProjectileData[];
   nextProjectileId: number;
-  upgrades: Record<Trait, number>;  // 특성별 업그레이드 레벨 (0~100)
+  upgrades: Record<SoldierType, number>;  // 특성(유닛 타입)별 업그레이드 레벨 (0~100)
   gameOver: boolean;
   won: boolean;
 }

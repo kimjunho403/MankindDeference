@@ -1,5 +1,4 @@
 import type { SoldierData, SoldierType } from '../core/state/GameState';
-import type { Trait } from '../core/systems/UpgradeDefs';
 import { getGradeDef, getGradeLabel } from '../core/systems/GradeDefs';
 import { getCharacterDef } from '../character/CharacterRegistry';
 import type { PortraitRenderer } from '../character/PortraitRenderer';
@@ -54,7 +53,7 @@ export class SelectionPanel {
     this.focusCb = cb;
   }
 
-  update(soldiers: SoldierData[], upgrades: Record<Trait, number>): void {
+  update(soldiers: SoldierData[], upgrades: Record<SoldierType, number>): void {
     const selected = soldiers.filter(s => s.selected);
 
     if (selected.length === 0) {
@@ -86,16 +85,16 @@ export class SelectionPanel {
     }
   }
 
-  private writeProfile(s: SoldierData, upgrades: Record<Trait, number>): void {
+  private writeProfile(s: SoldierData, upgrades: Record<SoldierType, number>): void {
     const def      = getCharacterDef(s.soldierType);
     const gradeDef = getGradeDef(s.grade);
-    const level        = upgrades[s.trait];
+    const level        = upgrades[s.soldierType];
     const base         = Math.round(s.attackDamage);
     const upgradeBonus = base * level;
     const hex          = '#' + gradeDef.color.toString(16).padStart(6, '0');
 
     this.sNameEl.textContent  = def.label;
-    this.sGradeEl.textContent = getGradeLabel(s.grade, s.trait);
+    this.sGradeEl.textContent = getGradeLabel(s.grade, s.soldierType);
     this.sGradeEl.style.color = hex;
     this.sAtkEl.innerHTML     = upgradeBonus > 0
       ? `${base} <small style="color:#88ff88">+${upgradeBonus}</small>`

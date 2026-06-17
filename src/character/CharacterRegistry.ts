@@ -1,17 +1,13 @@
 import type { SoldierType, WeaponType } from '../core/state/GameState';
-import type { Trait } from '../core/systems/UpgradeDefs';
 import type { Grade } from '../core/systems/GradeDefs';
 import type { SoldierTemplate } from './SoldierTypes';
-import { loadArcherTemplate } from './ArcherLoader';
-import { loadNinjaTemplate } from './NinjaLoader';
-import { loadPaladinTemplate } from './PaladinLoader';
+import { loadSoldierTemplate, BASE_ASSETS } from './loadSoldierTemplate';
 import ATTACK_TIMING from './attackTiming.json';  // 공격 발동 시점 (애니 0~1 비율) — 에디터 💾로 저장
 export { gradeModel } from './loadSoldierTemplate';
 
 export interface CharacterDef {
-  soldierType: SoldierType;
+  soldierType: SoldierType;  // = 특성(업그레이드 분류)
   label: string;  // 한글 표기명
-  trait: Trait;
   weaponType: WeaponType;
   stats: {
     attackDamage: number;
@@ -29,28 +25,25 @@ export function getAttackTiming(type: SoldierType): number {
 
 export const CHARACTER_DEFS: CharacterDef[] = [
   {
-    soldierType: 'archer',
-    label: '아처',
-    trait: 'ranged',
+    soldierType: 'ranged',
+    label: '돌팔매꾼',
     weaponType: 'rock',
     stats: { attackDamage: 10, attackRange: 4, attackSpeed: 1, moveSpeed: 3 },
-    load: loadArcherTemplate,
+    load: () => loadSoldierTemplate(BASE_ASSETS.ranged),
   },
   {
-    soldierType: 'ninja',
-    label: '닌자',
-    trait: 'explosive',
+    soldierType: 'explosive',
+    label: '투창병',
     weaponType: 'spear',
     stats: { attackDamage: 10, attackRange: 4, attackSpeed: 1, moveSpeed: 3 },
-    load: loadNinjaTemplate,
+    load: () => loadSoldierTemplate(BASE_ASSETS.explosive),
   },
   {
-    soldierType: 'paladin',
-    label: '팔라딘',
-    trait: 'melee',
+    soldierType: 'melee',
+    label: '돌도끼 전사',
     weaponType: 'melee',
     stats: { attackDamage: 25, attackRange: 1.5, attackSpeed: 1.5, moveSpeed: 2.5 },
-    load: loadPaladinTemplate,
+    load: () => loadSoldierTemplate(BASE_ASSETS.melee),
   },
 ];
 
@@ -58,9 +51,9 @@ export const CHARACTER_DEFS: CharacterDef[] = [
 // (soldierType, grade) 조합별 전용 모델. 비어있는 칸은 base 모델로 폴백된다.
 //
 // 새 시대/신 모델 추가 = GLB 파일을 asset/units/{type}/ 에 넣고 여기 한 줄 추가:
-//   archer: {
-//     legendary: gradeModel('archer', '/units/archer/future.glb'),   // 미래 아처
-//     eternal:   gradeModel('archer', '/units/archer/houyi.glb'),    // 후예(신)
+//   ranged: {
+//     legendary: gradeModel('ranged', '/units/ranged/future.glb'),   // 미래 원거리
+//     eternal:   gradeModel('ranged', '/units/ranged/houyi.glb'),    // 후예(신)
 //   }
 // gradeModel은 모델만 교체하고 idle/attack/walk 애니는 trait base를 재사용한다.
 // 등급 키: normal=구석기 rare=중세 epic=근대 unique=현대 legendary=미래
@@ -68,9 +61,9 @@ export const CHARACTER_DEFS: CharacterDef[] = [
 type GradeModelLoaders = Partial<Record<Grade, () => Promise<SoldierTemplate>>>;
 
 export const GRADE_MODEL_DEFS: Record<SoldierType, GradeModelLoaders> = {
-  archer:  {},
-  ninja:   {},
-  paladin: {},
+  ranged:    {},
+  explosive: {},
+  melee:     {},
 };
 
 // (soldierType, grade) → SoldierTemplate 조회 + 폴백을 담당하는 저장소

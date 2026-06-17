@@ -151,7 +151,7 @@ export function updateCombat(state: GameState, delta: number): CombatResult {
       if (target) {
         const mPos = progressToPosition(target.progress);
         soldier.attackCooldown = 1 / soldier.attackSpeed;
-        const damage = soldier.attackDamage * (1 + state.upgrades[soldier.trait]);
+        const damage = soldier.attackDamage * (1 + state.upgrades[soldier.soldierType]);
 
         // 공격 모션 시작 (애니/조준). 실제 발동은 hitDelay 후 사정거리 재확인.
         attackStarts.push({ soldierId: soldier.id, soldierPos: soldier.position, monsterPos: mPos, weaponType: soldier.weaponType });
